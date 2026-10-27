@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { AdminLoginForm } from "@/components/admin-login-form";
 import { LockIcon } from "@/components/admin-icons";
 import { getSession, sanitizeNextPath } from "@/lib/session";
+import { isReadOnlyFallback } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,13 @@ export default async function AdminLoginPage({ searchParams }: { searchParams: S
             This area is private. Sign in with the administrator account provided by the site
             owner.
           </p>
+
+          {isReadOnlyFallback() ? (
+            <p className="notice notice-error" role="status">
+              This deployment is running in read-only demo mode because no content database
+              is connected. Administrator sign-in is disabled.
+            </p>
+          ) : null}
 
           {loggedOut ? (
             <p className="notice notice-success" role="status">

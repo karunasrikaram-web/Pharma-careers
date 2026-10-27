@@ -1,18 +1,34 @@
 import type { Client, InStatement } from "@libsql/client";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 /**
  * Database access layer.
  *
- * Production deployments (including Vercel) must use a remote libSQL/Turso
- * database configured through TURSO_DATABASE_URL and TURSO_AUTH_TOKEN. The
- * deployment filesystem is read-only, so no files are created there.
+ * Production deployments (including Vercel) should use a remote libSQL/Turso
+ * database configured through TURSO_DATABASE_URL and TURSO_AUTH_TOKEN. When no
+ * remote database is configured, a serverless deployment serves a sanitized
+ * snapshot of the demo content in read-only mode instead of failing outright.
  *
  * Local development falls back to a SQLite file on disk through DATABASE_PATH.
  */
 
 export type DbValue = string | number | bigint | boolean | null | Uint8Array | Date;
+
+export type DatabaseMode = "remote" | "local" | "read_only_fallback";
+
+const FALLBACK_DATABASE_FILE = "fallback.db";
+const READ_ONLY_ERROR =
+  "This deployment is running in read-only demo mode. " +
+  "Set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN to enable saving data.";
+
+export class ReadOnlyDatabaseError extends Error {
+  constructor(message: string = READ_ONLY_ERROR) {
+    super(message);
+    this.name = "ReadOnlyDatabaseError";
+  }
+}
 
 const globalForDb = globalThis as unknown as {
   __pharmaCareersClient?: Promise<Client>;
@@ -21,12 +37,13 @@ const globalForDb = globalThis as unknown as {
 interface DatabaseConfig {
   url: string;
   authToken?: string;
+  readOnly?: boolean;
 }
 
 /**
  * Hosts where the application directory is read-only and ephemeral. On these
- * platforms a local SQLite file can never be used, so the code must fail with a
- * configuration error instead of trying to create a directory.
+ * platforms a local SQLite file can never hold persistent data, so either a
+ * remote database is used or the bundled read-only snapshot is served.
  */
 function isServerlessRuntime(): boolean {
   return Boolean(
@@ -36,6 +53,63 @@ function isServerlessRuntime(): boolean {
       process.env.LAMBDA_TASK_ROOT ||
       process.env.FUNCTIONS_WORKER_RUNTIME,
   );
+}
+
+export function getDatabaseMode(): DatabaseMode {
+  if (process.env.TURSO_DATABASE_URL?.trim()) return "remote";
+  if (isServerlessRuntime()) return "read_only_fallback";
+  return "local";
+}
+
+/**
+ * True when this process is serving the bundled demo snapshot because no remote
+ * database is configured. Writes are rejected in this mode.
+ */
+export function isReadOnlyFallback(): boolean {
+  return getDatabaseMode() === "read_only_fallback";
+}
+
+function bundledFallbackPath(): string {
+  const candidates = [
+    path.join(process.cwd(), "db", FALLBACK_DATABASE_FILE),
+    process.env.LAMBDA_TASK_ROOT
+      ? path.join(process.env.LAMBDA_TASK_ROOT, "db", FALLBACK_DATABASE_FILE)
+      : null,
+  ].filter((candidate): candidate is string => Boolean(candidate));
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+
+  throw new Error(
+    `The bundled read-only content snapshot (db/${FALLBACK_DATABASE_FILE}) is missing from this deployment. ` +
+      "Make sure db/fallback.db is committed and included in output file tracing.",
+  );
+}
+
+/**
+ * Copy the committed snapshot into the writable temp directory once per
+ * process. SQLite needs a writable directory for its journal files even when
+ * the database itself is only queried, so the read-only copy lives in /tmp.
+ */
+function prepareFallbackDatabase(): string {
+  const source = bundledFallbackPath();
+  const target = path.join(os.tmpdir(), "pharma-careers-read-only.db");
+
+  let needsCopy = true;
+  try {
+    needsCopy = fs.statSync(target).size !== fs.statSync(source).size;
+  } catch {
+    needsCopy = true;
+  }
+
+  if (needsCopy) {
+    const temporary = `${target}.${process.pid}.tmp`;
+    fs.copyFileSync(source, temporary);
+    fs.renameSync(temporary, target);
+  }
+
+  return target;
 }
 
 function resolveDatabaseConfig(): DatabaseConfig {
@@ -57,11 +131,7 @@ function resolveDatabaseConfig(): DatabaseConfig {
   }
 
   if (serverless) {
-    throw new Error(
-      "No persistent database is configured. Set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN " +
-        "in the hosting project's environment variables. Serverless filesystems are read-only, " +
-        "so a local SQLite file cannot be used in production.",
-    );
+    return { url: `file:${prepareFallbackDatabase()}`, readOnly: true };
   }
 
   const configured = process.env.DATABASE_PATH?.trim();
@@ -129,16 +199,17 @@ async function runMigrations(client: Client): Promise<void> {
  * Remote libSQL/Turso databases speak HTTP and WebSocket. Use that client in
  * production so the native `libsql` addon (a platform-specific binary that is
  * resolved at runtime and therefore cannot be traced into a serverless bundle)
- * is never loaded. Local development keeps the Node client for `file:` URLs.
+ * is never loaded for remote databases. Local files, including the read-only
+ * fallback snapshot, need the Node client.
  */
 async function createClientFor(config: DatabaseConfig): Promise<Client> {
   if (config.url.startsWith("file:")) {
     const { createClient } = await import("@libsql/client");
-    return createClient(config);
+    return createClient({ url: config.url, authToken: config.authToken });
   }
 
   const { createClient } = await import("@libsql/client/web");
-  return createClient(config);
+  return createClient({ url: config.url, authToken: config.authToken });
 }
 
 async function connect(): Promise<Client> {
@@ -146,6 +217,13 @@ async function connect(): Promise<Client> {
   const client = await createClientFor(config);
 
   try {
+    if (config.readOnly) {
+      // Belt and braces: the actions and data helpers reject writes, and SQLite
+      // itself refuses them here.
+      await client.execute("PRAGMA query_only = ON");
+      return client;
+    }
+
     await runMigrations(client);
   } catch (error) {
     client.close();
@@ -185,6 +263,8 @@ export async function dbRun(
   sql: string,
   args: DbValue[] = [],
 ): Promise<{ changes: number; lastInsertRowid: bigint | undefined }> {
+  if (isReadOnlyFallback()) throw new ReadOnlyDatabaseError();
+
   const client = await getDbClient();
   const result = await client.execute({ sql, args });
   return { changes: result.rowsAffected, lastInsertRowid: result.lastInsertRowid };
@@ -192,6 +272,8 @@ export async function dbRun(
 
 /** Run several statements atomically in a single transaction. */
 export async function dbBatch(statements: InStatement[]): Promise<void> {
+  if (isReadOnlyFallback()) throw new ReadOnlyDatabaseError();
+
   const client = await getDbClient();
   await client.batch(statements, "write");
 }

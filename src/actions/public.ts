@@ -3,7 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { dbGet, dbRun } from "@/lib/db";
+import { dbGet, dbRun, isReadOnlyFallback } from "@/lib/db";
 import { getClientIp, hashIp } from "@/lib/config";
 import { todayIST } from "@/lib/dates";
 import { checkFormRateLimit } from "@/lib/rate-limit";
@@ -45,6 +45,16 @@ export async function contactAction(
       ok: false,
       message: "Please correct the highlighted fields.",
       errors,
+      values,
+    };
+  }
+
+  if (isReadOnlyFallback()) {
+    return {
+      ok: false,
+      message:
+        "This site is currently running in read-only demo mode, so messages cannot be saved. Please try again once storage is configured.",
+      errors: {},
       values,
     };
   }
@@ -129,6 +139,15 @@ export async function reportJobAction(
       ok: false,
       message: "Please correct the highlighted fields.",
       errors,
+    };
+  }
+
+  if (isReadOnlyFallback()) {
+    return {
+      ok: false,
+      message:
+        "This site is currently running in read-only demo mode, so job reports cannot be submitted.",
+      errors: {},
     };
   }
 

@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { dbGet, dbRun } from "@/lib/db";
+import { dbGet, dbRun, isReadOnlyFallback } from "@/lib/db";
 import { sha256 } from "@/lib/config";
 import {
   SESSION_COOKIE,
@@ -100,11 +100,13 @@ export async function getSession(): Promise<AdminSession | null> {
   const idle = now - Date.parse(row.last_seen_at) > SESSION_IDLE_TIMEOUT_MS;
 
   if (expired || idle) {
-    await dbRun("DELETE FROM sessions WHERE id = ?", [row.session_id]);
+    if (!isReadOnlyFallback()) {
+      await dbRun("DELETE FROM sessions WHERE id = ?", [row.session_id]);
+    }
     return null;
   }
 
-  if (now - Date.parse(row.last_seen_at) > TOUCH_INTERVAL_MS) {
+  if (!isReadOnlyFallback() && now - Date.parse(row.last_seen_at) > TOUCH_INTERVAL_MS) {
     await dbRun("UPDATE sessions SET last_seen_at = ? WHERE id = ?", [
       new Date(now).toISOString(),
       row.session_id,

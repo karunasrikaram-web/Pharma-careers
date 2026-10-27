@@ -5,7 +5,8 @@ const isDev = process.env.NODE_ENV !== "production";
 if (process.env.VERCEL && !process.env.TURSO_DATABASE_URL) {
   console.warn(
     "[pharma-careers] TURSO_DATABASE_URL is not set for this deployment. " +
-      "Pages that read the database will return an error until the Turso variables are configured.",
+      "The public site will serve the bundled read-only demo snapshot; form " +
+      "submissions, job alerts and admin sign-in will be disabled.",
   );
 }
 
@@ -54,7 +55,16 @@ const nextConfig: NextConfig = {
     },
   },
   outputFileTracingIncludes: {
-    "/**": ["./db/migrations/**/*"],
+    "/**": [
+      "./db/migrations/**/*",
+      "./db/fallback.db",
+      // The read-only fallback opens a local SQLite file, which uses the native
+      // libSQL bindings. Their platform binary is resolved at runtime, so trace
+      // the packages explicitly instead of relying on static analysis.
+      "./node_modules/libsql/**/*",
+      "./node_modules/@libsql/**/*",
+      "./node_modules/@neon-rs/**/*",
+    ],
   },
   async headers() {
     return [

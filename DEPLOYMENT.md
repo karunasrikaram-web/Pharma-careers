@@ -1,8 +1,27 @@
 # Deployment
 
 Pharma Careers stores all content, administrator accounts, sessions, messages, reports and
-uploaded resumes in a libSQL database. Production deployments use a remote
-[Turso](https://turso.tech) database; the application never writes to the deployment filesystem.
+uploaded resumes in a libSQL database. Production deployments should use a remote
+[Turso](https://turso.tech) database. When no remote database is configured, the public
+site runs in read-only demo mode from a sanitized content snapshot that is committed to
+the repository.
+
+## Read-only fallback (zero configuration)
+
+If `TURSO_DATABASE_URL` is not set on a serverless host, the application:
+
+- Copies the committed `db/fallback.db` snapshot into the writable temp directory.
+- Opens it with `PRAGMA query_only = ON` and skips migrations.
+- Serves the public pages with the sample jobs and articles in that snapshot.
+- Rejects every write: contact messages, job reports, job alerts, applications and admin
+  sign-in return an honest "read-only demo mode" message.
+- Shows a "Demo mode" banner above the site header.
+
+`db/fallback.db` contains only the clearly labelled demo content: no administrator
+accounts, sessions, login attempts, messages, reports, user details or resumes. To enable
+the full site (real content, forms and the admin area), configure Turso as described
+below. Nothing in the application writes to the deployment filesystem; the temp copy
+exists only because SQLite needs a writable directory for its journal files.
 
 ## Why not a local SQLite file?
 
@@ -18,9 +37,10 @@ A file in a serverless deployment is also ephemeral: it would not be shared betw
 would disappear on the next deployment. The application has been migrated to `@libsql/client`,
 which works with both a remote Turso database and a local file during development.
 
-Remote databases are accessed through the HTTP/WebSocket client (`@libsql/client/web`), so the
-production bundle does not depend on the platform-specific native SQLite addon. The native client
-is used only for the local `file:` database during development.
+Remote databases are accessed through the HTTP/WebSocket client (`@libsql/client/web`), so a
+deployment with Turso configured does not depend on the platform-specific native SQLite addon.
+The native client is used for the local `file:` database during development and for the
+read-only fallback snapshot.
 
 ## 1. Create the database
 
@@ -41,9 +61,10 @@ TURSO_AUTH_TOKEN=<token>
 ```
 
 Set the same two variables in the Vercel project (Project → Settings → Environment Variables) for
-Production, Preview and Development.
+Production, Preview and Development. Without them the site still loads, but only in read-only
+demo mode with the bundled sample content.
 
-Required Vercel variables:
+Required Vercel variables for full functionality:
 
 | Variable | Purpose |
 | --- | --- |
@@ -92,8 +113,13 @@ After deploying, `GET /api/health` reports whether the live build can reach the 
 which commit is deployed. It never exposes credentials or content:
 
 ```json
-{ "status": "ok", "database": "connected", "commit": "6ffbe35" }
+{ "status": "ok", "database": "connected", "mode": "remote", "commit": "6ffbe35" }
 ```
+
+`mode` is `remote` when Turso is configured, `local` for a local development file, and
+`read_only_fallback` when the bundled demo snapshot is being served. The fallback still
+returns HTTP 200 because the site is serving content; check `mode` to know whether writes
+and the admin area are available.
 
 ## 4. Migrate existing local content
 
@@ -112,6 +138,6 @@ can contain contact messages, user details and password hashes.
 ## Local development
 
 With no `TURSO_DATABASE_URL`, the application uses `DATABASE_PATH` (default
-`./data/pharma-careers.db`). That directory is created only on a local machine. On Vercel, the
-application throws a clear configuration error if `TURSO_DATABASE_URL` is missing instead of
-trying to write to the read-only filesystem.
+`./data/pharma-careers.db`). That directory is created only on a local machine. On a
+serverless host with no remote database, the application serves the bundled read-only
+snapshot instead of trying to write to the read-only filesystem.

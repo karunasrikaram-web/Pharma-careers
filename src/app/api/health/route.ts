@@ -1,31 +1,32 @@
-import { dbGet } from "@/lib/db";
+import { dbGet, getDatabaseMode } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 /**
  * Deployment diagnostics. Reports whether this build can reach its database
  * without exposing credentials or content. Useful for confirming which commit
- * is live after a deployment.
+ * is live after a deployment. In read-only fallback mode the site is serving
+ * bundled demo content, so the check still succeeds.
  */
 export async function GET(): Promise<Response> {
   const commit = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local";
-  const configured = Boolean(process.env.TURSO_DATABASE_URL?.trim());
-
+  const mode = getDatabaseMode();
   const headers = { "Cache-Control": "no-store" };
-
-  if (!configured && !process.env.DATABASE_PATH) {
-    return Response.json(
-      { status: "error", database: "not_configured", commit },
-      { status: 503, headers },
-    );
-  }
 
   try {
     await dbGet("SELECT 1 AS ok");
-    return Response.json({ status: "ok", database: "connected", commit }, { headers });
+    return Response.json(
+      { status: "ok", database: "connected", mode, commit },
+      { headers },
+    );
   } catch {
     return Response.json(
-      { status: "error", database: "unavailable", commit },
+      {
+        status: "error",
+        database: mode === "remote" ? "unavailable" : "not_configured",
+        mode,
+        commit,
+      },
       { status: 503, headers },
     );
   }

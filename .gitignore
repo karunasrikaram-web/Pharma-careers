@@ -16,6 +16,9 @@ next-env.d.ts
 *.db-shm
 *.db-wal
 
+# bundled read-only snapshot of the demo content (no personal data)
+!/db/fallback.db
+
 # env files
 .env
 .env*.local

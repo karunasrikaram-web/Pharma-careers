@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { dbGet, dbRun } from "@/lib/db";
+import { dbGet, dbRun, isReadOnlyFallback } from "@/lib/db";
 import { getClientIp, hashIp } from "@/lib/config";
 import { todayIST } from "@/lib/dates";
 import { checkFormRateLimit } from "@/lib/rate-limit";
@@ -189,6 +189,14 @@ export async function saveUserDetailsAction(
   }
 
   const data = parsed.data;
+
+  if (isReadOnlyFallback()) {
+    return fail(
+      "This site is currently running in read-only demo mode, so submissions cannot be saved. Please try again once storage is configured.",
+      {},
+      values,
+    );
+  }
 
   let job: { id: string; title: string } | null = null;
   if (data.kind === "job_application") {

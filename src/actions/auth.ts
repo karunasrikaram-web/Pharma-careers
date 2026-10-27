@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { dbGet, dbRun } from "@/lib/db";
+import { dbGet, dbRun, isReadOnlyFallback } from "@/lib/db";
 import { DUMMY_PASSWORD_HASH, verifyPassword } from "@/lib/password";
 import { hashIp, getClientIp } from "@/lib/config";
 import { checkLoginRateLimit, recordLoginAttempt } from "@/lib/rate-limit";
@@ -31,6 +31,13 @@ export async function loginAction(
 
   if (!parsed.success) {
     return { error: "Enter a valid email address and password." };
+  }
+
+  if (isReadOnlyFallback()) {
+    return {
+      error:
+        "Admin sign-in is unavailable while this site runs in read-only demo mode. Configure a Turso database to enable the admin area.",
+    };
   }
 
   const email = parsed.data.email.trim().toLowerCase();
@@ -86,8 +93,10 @@ export async function loginAction(
 }
 
 export async function logoutAction(): Promise<void> {
-  const session = await getSession();
-  if (session) await destroySession(session.sessionId);
+  if (!isReadOnlyFallback()) {
+    const session = await getSession();
+    if (session) await destroySession(session.sessionId);
+  }
   await clearSessionCookie();
   redirect("/admin/login?loggedOut=1");
 }

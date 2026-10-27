@@ -451,6 +451,20 @@ ol {
    Public header
    -------------------------------------------------------------------------- */
 
+.read-only-banner {
+  background: var(--warning-bg);
+  border-bottom: 1px solid #f7d9a8;
+  color: #7a3b06;
+  font-size: 13.5px;
+  line-height: 1.5;
+  padding: 9px 0;
+}
+
+.read-only-banner strong {
+  color: #93370d;
+  font-weight: 700;
+}
+
 .site-header {
   background: var(--white);
   border-bottom: 1px solid var(--border);
