@@ -34,7 +34,7 @@ export default async function AdminUserDetailPage({
 }) {
   const { id } = await params;
   const query = await searchParams;
-  const record = getUserDetailById(id);
+  const record = await getUserDetailById(id);
   if (!record) notFound();
 
   const isApplication = record.kind === "job_application";

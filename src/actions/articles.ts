@@ -3,7 +3,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getDb } from "@/lib/db";
+import { dbGet, dbRun } from "@/lib/db";
 import {
   articleSlugExists,
   getArticleById,
@@ -25,13 +25,14 @@ export interface ArticleFormState {
   message?: string;
 }
 
-function uniqueSlug(title: string, excludeId?: string): string {
+async function uniqueSlug(title: string, excludeId?: string): Promise<string> {
   const base = slugify(title) || "article";
   for (let attempt = 0; attempt < 8; attempt += 1) {
     const candidate = attempt === 0 ? base : `${base}-${randomBytes(2).toString("hex")}`;
-    const existing = getDb()
-      .prepare("SELECT id FROM articles WHERE slug = ?")
-      .get(candidate) as { id: string } | undefined;
+    const existing = await dbGet<{ id: string }>(
+      "SELECT id FROM articles WHERE slug = ?",
+      [candidate],
+    );
     if (!existing || existing.id === excludeId) return candidate;
   }
   return `${base}-${randomUUID().slice(0, 8)}`;
@@ -64,7 +65,6 @@ export async function saveArticleAction(
   const values = parsed.values;
   const articleId = values.id.trim() || null;
   const isPreview = values.intent === "preview";
-  const db = getDb();
   const now = new Date().toISOString();
   const content = sanitizeArticleHtml(data.content);
 
@@ -78,9 +78,10 @@ export async function saveArticleAction(
 
   let categoryId: string | null = data.category_id ?? null;
   if (categoryId) {
-    const category = db
-      .prepare("SELECT id FROM categories WHERE id = ? AND content_type = 'article'")
-      .get(categoryId) as { id: string } | undefined;
+    const category = await dbGet<{ id: string }>(
+      "SELECT id FROM categories WHERE id = ? AND content_type = 'article'",
+      [categoryId],
+    );
     if (!category) categoryId = null;
   }
 
@@ -89,7 +90,7 @@ export async function saveArticleAction(
 
   try {
     if (articleId) {
-      const existing = getArticleById(articleId);
+      const existing = await getArticleById(articleId);
       if (!existing) {
         return {
           errors: { form: "This article no longer exists." },
@@ -100,8 +101,8 @@ export async function saveArticleAction(
 
       const slug = data.slug?.trim()
         ? data.slug.trim()
-        : uniqueSlug(data.title, articleId);
-      if (slug !== existing.slug && articleSlugExists(slug)) {
+        : await uniqueSlug(data.title, articleId);
+      if (slug !== existing.slug && (await articleSlugExists(slug))) {
         return {
           errors: { slug: "That URL slug is already used by another article." },
           values,
@@ -118,13 +119,13 @@ export async function saveArticleAction(
         nextScheduledAt ?? undefined,
         existing.published_at,
       );
-      db.prepare(
+      await dbRun(
         `UPDATE articles SET
            title = ?, slug = ?, excerpt = ?, content = ?, cover_image_url = ?,
            category_id = ?, author_name = ?, tags = ?, seo_title = ?, seo_description = ?,
            status = ?, is_featured = ?, scheduled_at = ?, published_at = ?, updated_at = ?
          WHERE id = ?`,
-      ).run(
+        [
         data.title,
         slug,
         data.excerpt ?? null,
@@ -141,13 +142,14 @@ export async function saveArticleAction(
         publishedAt,
         now,
         articleId,
+        ],
       );
       savedSlug = slug;
     } else {
       savedId = randomUUID();
-      savedSlug = data.slug?.trim() || uniqueSlug(data.title);
-      if (articleSlugExists(savedSlug)) {
-        savedSlug = uniqueSlug(data.title);
+      savedSlug = data.slug?.trim() || (await uniqueSlug(data.title));
+      if (await articleSlugExists(savedSlug)) {
+        savedSlug = await uniqueSlug(data.title);
       }
       const nextStatus = isPreview ? "draft" : data.status;
       const nextScheduledAt = isPreview ? null : data.scheduled_at ?? null;
@@ -157,13 +159,13 @@ export async function saveArticleAction(
         null,
       );
 
-      db.prepare(
+      await dbRun(
         `INSERT INTO articles (
            id, title, slug, excerpt, content, cover_image_url, category_id,
            author_name, tags, seo_title, seo_description, status, is_featured,
            is_demo, scheduled_at, published_at, created_by, created_at, updated_at
          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`,
-      ).run(
+        [
         savedId,
         data.title,
         savedSlug,
@@ -182,6 +184,7 @@ export async function saveArticleAction(
         session.id,
         now,
         now,
+        ],
       );
     }
   } catch (error) {
@@ -229,18 +232,17 @@ export async function setArticleStatusAction(formData: FormData): Promise<void> 
   const status = String(formData.get("status") ?? "").trim();
   if (!id || !isArticleStatus(status)) redirect("/admin/articles?error=invalid");
 
-  const article = getArticleById(id);
+  const article = await getArticleById(id);
   if (!article) redirect("/admin/articles?error=not-found");
 
   try {
     const now = new Date().toISOString();
     const publishedAt =
       status === "published" ? article.published_at ?? now : article.published_at;
-    getDb()
-      .prepare(
-        "UPDATE articles SET status = ?, published_at = ?, scheduled_at = ?, updated_at = ? WHERE id = ?",
-      )
-      .run(status, publishedAt, status === "published" ? article.scheduled_at : null, now, id);
+    await dbRun(
+      "UPDATE articles SET status = ?, published_at = ?, scheduled_at = ?, updated_at = ? WHERE id = ?",
+      [status, publishedAt, status === "published" ? article.scheduled_at : null, now, id],
+    );
   } catch (error) {
     console.error("Failed to update article status.", error);
     redirect(`/admin/articles/${id}/edit?error=status`);
@@ -254,13 +256,15 @@ export async function toggleArticleFeaturedAction(formData: FormData): Promise<v
   await requireAdmin();
   const id = String(formData.get("id") ?? "").trim();
   if (!id) redirect("/admin/articles?error=invalid");
-  const article = getArticleById(id);
+  const article = await getArticleById(id);
   if (!article) redirect("/admin/articles?error=not-found");
 
   try {
-    getDb()
-      .prepare("UPDATE articles SET is_featured = ?, updated_at = ? WHERE id = ?")
-      .run(article.is_featured ? 0 : 1, new Date().toISOString(), id);
+    await dbRun("UPDATE articles SET is_featured = ?, updated_at = ? WHERE id = ?", [
+      article.is_featured ? 0 : 1,
+      new Date().toISOString(),
+      id,
+    ]);
   } catch (error) {
     console.error("Failed to toggle article featured status.", error);
     redirect(`/admin/articles/${id}/edit?error=status`);
@@ -274,11 +278,11 @@ export async function deleteArticleAction(formData: FormData): Promise<void> {
   await requireAdmin();
   const id = String(formData.get("id") ?? "").trim();
   if (!id) redirect("/admin/articles?error=invalid");
-  const article = getArticleById(id);
+  const article = await getArticleById(id);
   if (!article) redirect("/admin/articles?error=not-found");
 
   try {
-    getDb().prepare("DELETE FROM articles WHERE id = ?").run(id);
+    await dbRun("DELETE FROM articles WHERE id = ?", [id]);
   } catch (error) {
     console.error("Failed to delete article.", error);
     redirect(`/admin/articles/${id}/edit?error=delete`);
@@ -296,17 +300,18 @@ export async function createCategoryAction(formData: FormData): Promise<void> {
   });
   if (!parsed.success) redirect("/admin/categories?error=invalid");
 
-  const db = getDb();
   const slug = slugify(parsed.data.name, "category");
-  const exists = db
-    .prepare("SELECT 1 FROM categories WHERE slug = ? AND content_type = 'article'")
-    .get(slug);
+  const exists = await dbGet(
+    "SELECT 1 AS found FROM categories WHERE slug = ? AND content_type = 'article'",
+    [slug],
+  );
   if (exists) redirect("/admin/categories?error=duplicate");
 
   try {
-    db.prepare(
+    await dbRun(
       "INSERT INTO categories (id, name, slug, content_type, created_at) VALUES (?, ?, ?, 'article', ?)",
-    ).run(randomUUID(), parsed.data.name, slug, new Date().toISOString());
+      [randomUUID(), parsed.data.name, slug, new Date().toISOString()],
+    );
   } catch (error) {
     console.error("Failed to create category.", error);
     redirect("/admin/categories?error=create");
@@ -323,23 +328,23 @@ export async function renameCategoryAction(formData: FormData): Promise<void> {
   const name = String(formData.get("name") ?? "").trim();
   if (!id || name.length < 2 || name.length > 100) redirect("/admin/categories?error=invalid");
 
-  const db = getDb();
-  const existing = db
-    .prepare("SELECT id FROM categories WHERE id = ? AND content_type = 'article'")
-    .get(id) as { id: string } | undefined;
+  const existing = await dbGet<{ id: string }>(
+    "SELECT id FROM categories WHERE id = ? AND content_type = 'article'",
+    [id],
+  );
   if (!existing) redirect("/admin/categories?error=not-found");
 
   const slug = slugify(name, "category");
-  const clash = db
-    .prepare("SELECT 1 FROM categories WHERE slug = ? AND content_type = 'article' AND id != ?")
-    .get(slug, id);
+  const clash = await dbGet(
+    "SELECT 1 AS found FROM categories WHERE slug = ? AND content_type = 'article' AND id != ?",
+    [slug, id],
+  );
   if (clash) redirect("/admin/categories?error=duplicate");
 
   try {
-    db.prepare("UPDATE categories SET name = ?, slug = ? WHERE id = ? AND content_type = 'article'").run(
-      name,
-      slug,
-      id,
+    await dbRun(
+      "UPDATE categories SET name = ?, slug = ? WHERE id = ? AND content_type = 'article'",
+      [name, slug, id],
     );
   } catch (error) {
     console.error("Failed to rename category.", error);
@@ -356,14 +361,14 @@ export async function deleteCategoryAction(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "").trim();
   if (!id) redirect("/admin/categories?error=invalid");
 
-  const db = getDb();
-  const existing = db
-    .prepare("SELECT id FROM categories WHERE id = ? AND content_type = 'article'")
-    .get(id) as { id: string } | undefined;
+  const existing = await dbGet<{ id: string }>(
+    "SELECT id FROM categories WHERE id = ? AND content_type = 'article'",
+    [id],
+  );
   if (!existing) redirect("/admin/categories?error=not-found");
 
   try {
-    db.prepare("DELETE FROM categories WHERE id = ? AND content_type = 'article'").run(id);
+    await dbRun("DELETE FROM categories WHERE id = ? AND content_type = 'article'", [id]);
   } catch (error) {
     console.error("Failed to delete category.", error);
     redirect("/admin/categories?error=delete");

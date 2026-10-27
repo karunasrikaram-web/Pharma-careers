@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getDb } from "@/lib/db";
+import { dbBatch, dbGet, dbRun } from "@/lib/db";
 import { hashPassword, verifyPassword, validatePasswordStrength } from "@/lib/password";
 import { getSession, requireAdmin } from "@/lib/session";
 import { changePasswordSchema, fieldErrors } from "@/lib/validation";
@@ -17,9 +17,7 @@ export async function updateMessageStatusAction(formData: FormData): Promise<voi
   }
 
   try {
-    getDb()
-      .prepare("UPDATE contact_messages SET status = ? WHERE id = ?")
-      .run(status, id);
+    await dbRun("UPDATE contact_messages SET status = ? WHERE id = ?", [status, id]);
   } catch (error) {
     console.error("Failed to update contact message.", error);
     redirect("/admin/messages?error=update");
@@ -36,7 +34,7 @@ export async function deleteMessageAction(formData: FormData): Promise<void> {
   if (!id) redirect("/admin/messages?error=invalid");
 
   try {
-    getDb().prepare("DELETE FROM contact_messages WHERE id = ?").run(id);
+    await dbRun("DELETE FROM contact_messages WHERE id = ?", [id]);
   } catch (error) {
     console.error("Failed to delete contact message.", error);
     redirect("/admin/messages?error=delete");
@@ -56,7 +54,7 @@ export async function updateReportStatusAction(formData: FormData): Promise<void
   }
 
   try {
-    getDb().prepare("UPDATE job_reports SET status = ? WHERE id = ?").run(status, id);
+    await dbRun("UPDATE job_reports SET status = ? WHERE id = ?", [status, id]);
   } catch (error) {
     console.error("Failed to update job report.", error);
     redirect("/admin/reports?error=update");
@@ -73,7 +71,7 @@ export async function deleteReportAction(formData: FormData): Promise<void> {
   if (!id) redirect("/admin/reports?error=invalid");
 
   try {
-    getDb().prepare("DELETE FROM job_reports WHERE id = ?").run(id);
+    await dbRun("DELETE FROM job_reports WHERE id = ?", [id]);
   } catch (error) {
     console.error("Failed to delete job report.", error);
     redirect("/admin/reports?error=delete");
@@ -120,10 +118,10 @@ export async function changePasswordAction(
     };
   }
 
-  const db = getDb();
-  const admin = db
-    .prepare("SELECT password_hash FROM admins WHERE id = ?")
-    .get(session.id) as { password_hash: string } | undefined;
+  const admin = await dbGet<{ password_hash: string }>(
+    "SELECT password_hash FROM admins WHERE id = ?",
+    [session.id],
+  );
 
   if (!admin || !verifyPassword(parsed.data.current_password, admin.password_hash)) {
     return {
@@ -134,16 +132,17 @@ export async function changePasswordAction(
   }
 
   try {
-    db.prepare("UPDATE admins SET password_hash = ?, updated_at = ? WHERE id = ?").run(
-      hashPassword(parsed.data.new_password),
-      new Date().toISOString(),
-      session.id,
-    );
-    // Sign out every other session; keep the current one active.
-    db.prepare("DELETE FROM sessions WHERE admin_id = ? AND id != ?").run(
-      session.id,
-      session.sessionId,
-    );
+    await dbBatch([
+      {
+        sql: "UPDATE admins SET password_hash = ?, updated_at = ? WHERE id = ?",
+        args: [hashPassword(parsed.data.new_password), new Date().toISOString(), session.id],
+      },
+      // Sign out every other session; keep the current one active.
+      {
+        sql: "DELETE FROM sessions WHERE admin_id = ? AND id != ?",
+        args: [session.id, session.sessionId],
+      },
+    ]);
   } catch (error) {
     console.error("Failed to change password.", error);
     return {

@@ -1,4 +1,4 @@
-import { getDb } from "@/lib/db";
+import { dbGet, dbRun } from "@/lib/db";
 import { LOGIN_WINDOW_MS } from "@/lib/constants";
 
 interface RateLimitResult {
@@ -9,57 +9,63 @@ interface RateLimitResult {
 const MAX_FAILURES_PER_IDENTITY = 5;
 const MAX_FAILURES_PER_IP = 15;
 
-export function recordLoginAttempt(email: string, ipHash: string, success: boolean): void {
-  const db = getDb();
+export async function recordLoginAttempt(
+  email: string,
+  ipHash: string,
+  success: boolean,
+): Promise<void> {
   const now = new Date();
 
-  db.prepare(
+  await dbRun(
     "INSERT INTO login_attempts (email, ip_hash, success, created_at) VALUES (?, ?, ?, ?)",
-  ).run(email.toLowerCase(), ipHash, success ? 1 : 0, now.toISOString());
-
-  // Keep the table small: remove records older than 24 hours.
-  db.prepare("DELETE FROM login_attempts WHERE created_at < ?").run(
-    new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(),
+    [email.toLowerCase(), ipHash, success ? 1 : 0, now.toISOString()],
   );
 
+  // Keep the table small: remove records older than 24 hours.
+  await dbRun("DELETE FROM login_attempts WHERE created_at < ?", [
+    new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(),
+  ]);
+
   if (success) {
-    db.prepare("DELETE FROM login_attempts WHERE email = ? AND success = 0").run(
+    await dbRun("DELETE FROM login_attempts WHERE email = ? AND success = 0", [
       email.toLowerCase(),
-    );
+    ]);
   }
 }
 
-export function checkLoginRateLimit(email: string, ipHash: string): RateLimitResult {
-  const db = getDb();
+export async function checkLoginRateLimit(
+  email: string,
+  ipHash: string,
+): Promise<RateLimitResult> {
   const since = new Date(Date.now() - LOGIN_WINDOW_MS).toISOString();
   const normalizedEmail = email.toLowerCase();
 
-  const identity = db
-    .prepare(
-      `SELECT COUNT(*) AS count, MAX(created_at) AS last
-       FROM login_attempts
-       WHERE success = 0 AND email = ? AND ip_hash = ? AND created_at >= ?`,
-    )
-    .get(normalizedEmail, ipHash, since) as { count: number; last: string | null };
+  const identity = await dbGet<{ count: number; last: string | null }>(
+    `SELECT COUNT(*) AS count, MAX(created_at) AS last
+     FROM login_attempts
+     WHERE success = 0 AND email = ? AND ip_hash = ? AND created_at >= ?`,
+    [normalizedEmail, ipHash, since],
+  );
 
-  const byIp = db
-    .prepare(
-      `SELECT COUNT(*) AS count, MAX(created_at) AS last
-       FROM login_attempts
-       WHERE success = 0 AND ip_hash = ? AND created_at >= ?`,
-    )
-    .get(ipHash, since) as { count: number; last: string | null };
+  const byIp = await dbGet<{ count: number; last: string | null }>(
+    `SELECT COUNT(*) AS count, MAX(created_at) AS last
+     FROM login_attempts
+     WHERE success = 0 AND ip_hash = ? AND created_at >= ?`,
+    [ipHash, since],
+  );
 
-  const identityBlocked = identity.count >= MAX_FAILURES_PER_IDENTITY;
-  const ipBlocked = byIp.count >= MAX_FAILURES_PER_IP;
+  const identityCount = identity?.count ?? 0;
+  const ipCount = byIp?.count ?? 0;
+  const identityBlocked = identityCount >= MAX_FAILURES_PER_IDENTITY;
+  const ipBlocked = ipCount >= MAX_FAILURES_PER_IP;
 
   if (!identityBlocked && !ipBlocked) {
     return { allowed: true, retryAfterSeconds: 0 };
   }
 
   const last = Math.max(
-    identity.last ? Date.parse(identity.last) : 0,
-    byIp.last ? Date.parse(byIp.last) : 0,
+    identity?.last ? Date.parse(identity.last) : 0,
+    byIp?.last ? Date.parse(byIp.last) : 0,
   );
   const retryAt = last + LOGIN_WINDOW_MS;
   const retryAfterSeconds = Math.max(1, Math.ceil((retryAt - Date.now()) / 1000));

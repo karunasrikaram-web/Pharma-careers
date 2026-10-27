@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { getDb } from "@/lib/db";
+import { dbGet, dbRun } from "@/lib/db";
 import { sha256 } from "@/lib/config";
 import {
   SESSION_COOKIE,
@@ -27,32 +27,32 @@ interface SessionRow {
 
 const TOUCH_INTERVAL_MS = 5 * 60 * 1000;
 
-export function createSession(
+export async function createSession(
   adminId: string,
   ipHash: string,
   userAgent: string,
-): { token: string; expiresAt: Date } {
-  const db = getDb();
+): Promise<{ token: string; expiresAt: Date }> {
   const token = randomBytes(32).toString("base64url");
   const tokenHash = sha256(token);
   const now = new Date();
   const expiresAt = new Date(now.getTime() + SESSION_DURATION_MS);
 
-  db.prepare(
+  await dbRun(
     `INSERT INTO sessions (id, admin_id, created_at, last_seen_at, expires_at, ip_hash, user_agent)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    tokenHash,
-    adminId,
-    now.toISOString(),
-    now.toISOString(),
-    expiresAt.toISOString(),
-    ipHash,
-    userAgent.slice(0, 300),
+    [
+      tokenHash,
+      adminId,
+      now.toISOString(),
+      now.toISOString(),
+      expiresAt.toISOString(),
+      ipHash,
+      userAgent.slice(0, 300),
+    ],
   );
 
   // Opportunistic cleanup of expired sessions.
-  db.prepare("DELETE FROM sessions WHERE expires_at < ?").run(now.toISOString());
+  await dbRun("DELETE FROM sessions WHERE expires_at < ?", [now.toISOString()]);
 
   return { token, expiresAt };
 }
@@ -84,16 +84,14 @@ export async function getSession(): Promise<AdminSession | null> {
   const token = store.get(SESSION_COOKIE)?.value;
   if (!token || token.length > 200) return null;
 
-  const db = getDb();
-  const row = db
-    .prepare(
-      `SELECT s.id AS session_id, s.expires_at, s.last_seen_at,
-              a.id, a.email, a.name, a.created_at, a.last_login_at
-       FROM sessions s
-       JOIN admins a ON a.id = s.admin_id
-       WHERE s.id = ? AND a.is_active = 1`,
-    )
-    .get(sha256(token)) as SessionRow | undefined;
+  const row = await dbGet<SessionRow>(
+    `SELECT s.id AS session_id, s.expires_at, s.last_seen_at,
+            a.id, a.email, a.name, a.created_at, a.last_login_at
+     FROM sessions s
+     JOIN admins a ON a.id = s.admin_id
+     WHERE s.id = ? AND a.is_active = 1`,
+    [sha256(token)],
+  );
 
   if (!row) return null;
 
@@ -102,15 +100,15 @@ export async function getSession(): Promise<AdminSession | null> {
   const idle = now - Date.parse(row.last_seen_at) > SESSION_IDLE_TIMEOUT_MS;
 
   if (expired || idle) {
-    db.prepare("DELETE FROM sessions WHERE id = ?").run(row.session_id);
+    await dbRun("DELETE FROM sessions WHERE id = ?", [row.session_id]);
     return null;
   }
 
   if (now - Date.parse(row.last_seen_at) > TOUCH_INTERVAL_MS) {
-    db.prepare("UPDATE sessions SET last_seen_at = ? WHERE id = ?").run(
+    await dbRun("UPDATE sessions SET last_seen_at = ? WHERE id = ?", [
       new Date(now).toISOString(),
       row.session_id,
-    );
+    ]);
   }
 
   return {
@@ -129,12 +127,12 @@ export async function requireAdmin(): Promise<AdminSession> {
   return session;
 }
 
-export function destroySession(sessionId: string): void {
-  getDb().prepare("DELETE FROM sessions WHERE id = ?").run(sessionId);
+export async function destroySession(sessionId: string): Promise<void> {
+  await dbRun("DELETE FROM sessions WHERE id = ?", [sessionId]);
 }
 
-export function destroyAllSessionsForAdmin(adminId: string): void {
-  getDb().prepare("DELETE FROM sessions WHERE admin_id = ?").run(adminId);
+export async function destroyAllSessionsForAdmin(adminId: string): Promise<void> {
+  await dbRun("DELETE FROM sessions WHERE admin_id = ?", [adminId]);
 }
 
 export function sanitizeNextPath(value: unknown): string {

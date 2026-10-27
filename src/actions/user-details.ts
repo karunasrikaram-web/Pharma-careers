@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getDb } from "@/lib/db";
+import { dbGet, dbRun } from "@/lib/db";
 import { getClientIp, hashIp } from "@/lib/config";
 import { todayIST } from "@/lib/dates";
 import { checkFormRateLimit } from "@/lib/rate-limit";
@@ -195,13 +195,12 @@ export async function saveUserDetailsAction(
     if (!data.job_id) {
       return fail("The job opening could not be identified. Please reload the page.", {}, values);
     }
-    job = (getDb()
-      .prepare(
-        `SELECT id, title FROM jobs
-         WHERE id = ? AND status = 'published'
-           AND (application_deadline IS NULL OR application_deadline >= ?)`,
-      )
-      .get(data.job_id, todayIST()) as { id: string; title: string } | undefined) ?? null;
+    job = await dbGet<{ id: string; title: string }>(
+      `SELECT id, title FROM jobs
+       WHERE id = ? AND status = 'published'
+         AND (application_deadline IS NULL OR application_deadline >= ?)`,
+      [data.job_id, todayIST()],
+    );
 
     if (!job) {
       return fail(
@@ -231,16 +230,14 @@ export async function saveUserDetailsAction(
   }
 
   try {
-    getDb()
-      .prepare(
-        `INSERT INTO user_details (
-           id, kind, job_id, job_title, name, email, phone, city, state,
-           qualification, experience, preferred_departments, message,
-           resume_name, resume_mime, resume_size, resume_data,
-           status, ip_hash, created_at, updated_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?)`,
-      )
-      .run(
+    await dbRun(
+      `INSERT INTO user_details (
+         id, kind, job_id, job_title, name, email, phone, city, state,
+         qualification, experience, preferred_departments, message,
+         resume_name, resume_mime, resume_size, resume_data,
+         status, ip_hash, created_at, updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?)`,
+      [
         randomUUID(),
         data.kind,
         job?.id ?? null,
@@ -261,7 +258,8 @@ export async function saveUserDetailsAction(
         ipHash,
         new Date().toISOString(),
         new Date().toISOString(),
-      );
+      ],
+    );
   } catch (error) {
     console.error("Failed to store submitted user details.", error);
     return fail(
@@ -319,15 +317,17 @@ export async function updateUserDetailAction(formData: FormData): Promise<void> 
     redirect(`/admin/user-details/${encodeURIComponent(id)}?error=invalid`);
   }
 
-  const existing = getDb()
-    .prepare("SELECT id FROM user_details WHERE id = ?")
-    .get(id) as { id: string } | undefined;
+  const existing = await dbGet<{ id: string }>(
+    "SELECT id FROM user_details WHERE id = ?",
+    [id],
+  );
   if (!existing) redirect("/admin/user-details?error=not-found");
 
   try {
-    getDb()
-      .prepare("UPDATE user_details SET status = ?, admin_note = ?, updated_at = ? WHERE id = ?")
-      .run(status, note || null, new Date().toISOString(), id);
+    await dbRun(
+      "UPDATE user_details SET status = ?, admin_note = ?, updated_at = ? WHERE id = ?",
+      [status, note || null, new Date().toISOString(), id],
+    );
   } catch (error) {
     console.error("Failed to update user details record.", error);
     redirect(`/admin/user-details/${encodeURIComponent(id)}?error=update`);
@@ -344,13 +344,14 @@ export async function deleteUserDetailAction(formData: FormData): Promise<void> 
   const id = String(formData.get("id") ?? "").trim();
   if (!id) redirect("/admin/user-details?error=invalid");
 
-  const existing = getDb()
-    .prepare("SELECT id FROM user_details WHERE id = ?")
-    .get(id) as { id: string } | undefined;
+  const existing = await dbGet<{ id: string }>(
+    "SELECT id FROM user_details WHERE id = ?",
+    [id],
+  );
   if (!existing) redirect("/admin/user-details?error=not-found");
 
   try {
-    getDb().prepare("DELETE FROM user_details WHERE id = ?").run(id);
+    await dbRun("DELETE FROM user_details WHERE id = ?", [id]);
   } catch (error) {
     console.error("Failed to delete user details record.", error);
     redirect(`/admin/user-details/${encodeURIComponent(id)}?error=delete`);

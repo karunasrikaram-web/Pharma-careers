@@ -27,8 +27,8 @@ export default async function AdminMessagesPage({
   const status = (STATUSES as readonly string[]).includes(requestedStatus)
     ? requestedStatus
     : "";
-  const messages = listContactMessages(status || undefined);
-  const counts = getMessageCounts();
+  const messages = await listContactMessages(status || undefined);
+  const counts = await getMessageCounts();
 
   return (
     <>

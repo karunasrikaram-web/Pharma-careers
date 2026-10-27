@@ -38,7 +38,7 @@ const nextConfig: NextConfig = {
   // dynamically rendered pages stream metadata at the end of <body>, where some
   // crawlers and audit tools do not detect the meta description.
   htmlLimitedBots: /.*/,
-  serverExternalPackages: ["better-sqlite3"],
+  serverExternalPackages: ["@libsql/client"],
   experimental: {
     serverActions: {
       // Resumes are limited to 5 MB in the action; the transport limit needs

@@ -13,8 +13,8 @@ export const metadata: Metadata = {
   alternates: { canonical: "/job-alerts" },
 };
 
-export default function JobAlertsPage() {
-  const config = getRegistrationConfig();
+export default async function JobAlertsPage() {
+  const config = await getRegistrationConfig();
 
   return (
     <div className="page-shell">

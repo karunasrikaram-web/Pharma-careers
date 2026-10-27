@@ -1,4 +1,4 @@
-import { getDb } from "@/lib/db";
+import { dbAll, dbGet } from "@/lib/db";
 import type { ContactMessage, JobReport } from "@/lib/types";
 
 export interface MessageCounts {
@@ -8,44 +8,40 @@ export interface MessageCounts {
   archived: number;
 }
 
-export function listContactMessages(status?: string): ContactMessage[] {
-  const db = getDb();
+export async function listContactMessages(status?: string): Promise<ContactMessage[]> {
   if (status && ["new", "read", "archived"].includes(status)) {
-    return db
-      .prepare("SELECT * FROM contact_messages WHERE status = ? ORDER BY created_at DESC")
-      .all(status) as ContactMessage[];
+    return dbAll<ContactMessage>(
+      "SELECT * FROM contact_messages WHERE status = ? ORDER BY created_at DESC",
+      [status],
+    );
   }
-  return db
-    .prepare("SELECT * FROM contact_messages ORDER BY created_at DESC")
-    .all() as ContactMessage[];
+  return dbAll<ContactMessage>("SELECT * FROM contact_messages ORDER BY created_at DESC");
 }
 
-export function getMessageCounts(): MessageCounts {
-  const db = getDb();
-  const row = db
-    .prepare(
-      `SELECT COUNT(*) AS total,
-              COALESCE(SUM(CASE WHEN status = 'new' THEN 1 ELSE 0 END), 0) AS unread,
-              COALESCE(SUM(CASE WHEN status = 'read' THEN 1 ELSE 0 END), 0) AS readCount,
-              COALESCE(SUM(CASE WHEN status = 'archived' THEN 1 ELSE 0 END), 0) AS archived
-       FROM contact_messages`,
-    )
-    .get() as { total: number; unread: number; readCount: number; archived: number };
+export async function getMessageCounts(): Promise<MessageCounts> {
+  const row = await dbGet<{
+    total: number;
+    unread: number;
+    readCount: number;
+    archived: number;
+  }>(
+    `SELECT COUNT(*) AS total,
+            COALESCE(SUM(CASE WHEN status = 'new' THEN 1 ELSE 0 END), 0) AS unread,
+            COALESCE(SUM(CASE WHEN status = 'read' THEN 1 ELSE 0 END), 0) AS readCount,
+            COALESCE(SUM(CASE WHEN status = 'archived' THEN 1 ELSE 0 END), 0) AS archived
+     FROM contact_messages`,
+  );
+
   return {
-    total: row.total,
-    unread: row.unread,
-    read: row.readCount,
-    archived: row.archived,
+    total: row?.total ?? 0,
+    unread: row?.unread ?? 0,
+    read: row?.readCount ?? 0,
+    archived: row?.archived ?? 0,
   };
 }
 
-export function getContactMessage(id: string): ContactMessage | null {
-  const db = getDb();
-  return (
-    (db.prepare("SELECT * FROM contact_messages WHERE id = ?").get(id) as
-      | ContactMessage
-      | undefined) ?? null
-  );
+export async function getContactMessage(id: string): Promise<ContactMessage | null> {
+  return dbGet<ContactMessage>("SELECT * FROM contact_messages WHERE id = ?", [id]);
 }
 
 export interface ReportCounts {
@@ -54,29 +50,29 @@ export interface ReportCounts {
   resolved: number;
 }
 
-export function listJobReports(status?: string): JobReport[] {
-  const db = getDb();
+export async function listJobReports(status?: string): Promise<JobReport[]> {
   const where = status && ["open", "resolved"].includes(status) ? "WHERE r.status = ?" : "";
-  return db
-    .prepare(
-      `SELECT r.*, j.title AS job_title, j.slug AS job_slug
-       FROM job_reports r
-       LEFT JOIN jobs j ON j.id = r.job_id
-       ${where}
-       ORDER BY r.created_at DESC`,
-    )
-    .all(...(where ? [status] : [])) as JobReport[];
+  return dbAll<JobReport>(
+    `SELECT r.*, j.title AS job_title, j.slug AS job_slug
+     FROM job_reports r
+     LEFT JOIN jobs j ON j.id = r.job_id
+     ${where}
+     ORDER BY r.created_at DESC`,
+    where ? [status as string] : [],
+  );
 }
 
-export function getReportCounts(): ReportCounts {
-  const db = getDb();
-  const row = db
-    .prepare(
-      `SELECT COUNT(*) AS total,
-              COALESCE(SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END), 0) AS open,
-              COALESCE(SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END), 0) AS resolved
-       FROM job_reports`,
-    )
-    .get() as { total: number; open: number; resolved: number };
-  return { total: row.total, open: row.open, resolved: row.resolved };
+export async function getReportCounts(): Promise<ReportCounts> {
+  const row = await dbGet<{ total: number; open: number; resolved: number }>(
+    `SELECT COUNT(*) AS total,
+            COALESCE(SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END), 0) AS open,
+            COALESCE(SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END), 0) AS resolved
+     FROM job_reports`,
+  );
+
+  return {
+    total: row?.total ?? 0,
+    open: row?.open ?? 0,
+    resolved: row?.resolved ?? 0,
+  };
 }

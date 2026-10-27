@@ -1,8 +1,8 @@
 import { getRegistrationConfig } from "@/lib/settings";
 import { JobAlertsPopup } from "@/components/job-alerts-popup";
 
-export function JobAlertsLayer() {
-  const config = getRegistrationConfig();
+export async function JobAlertsLayer() {
+  const config = await getRegistrationConfig();
   return (
     <JobAlertsPopup
       enabled={config.enabled}

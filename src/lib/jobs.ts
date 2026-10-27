@@ -1,4 +1,4 @@
-import { getDb } from "@/lib/db";
+import { dbAll, dbGet } from "@/lib/db";
 import { todayIST } from "@/lib/dates";
 import type {
   DashboardStats,
@@ -63,18 +63,18 @@ function buildPublicWhere(filters: JobFilters, today: string): WhereClause {
   return { sql: clauses.join(" AND "), params };
 }
 
-export function listPublicJobs(filters: JobFilters = {}): PaginatedJobs {
-  const db = getDb();
+export async function listPublicJobs(filters: JobFilters = {}): Promise<PaginatedJobs> {
   const today = todayIST();
   const perPage = clamp(filters.perPage ?? 9, 1, 50);
   const requestedPage = Math.max(1, Math.floor(filters.page ?? 1));
   const where = buildPublicWhere(filters, today);
 
-  const countRow = db
-    .prepare(`SELECT COUNT(*) AS count FROM jobs WHERE ${where.sql}`)
-    .get(...where.params) as { count: number };
+  const countRow = await dbGet<{ count: number }>(
+    `SELECT COUNT(*) AS count FROM jobs WHERE ${where.sql}`,
+    where.params,
+  );
 
-  const total = countRow.count;
+  const total = countRow?.count ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / perPage));
   const page = Math.min(requestedPage, totalPages);
 
@@ -83,65 +83,56 @@ export function listPublicJobs(filters: JobFilters = {}): PaginatedJobs {
       ? "COALESCE(published_at, created_at) DESC, created_at DESC"
       : "is_featured DESC, published_at DESC, created_at DESC";
 
-  const jobs = db
-    .prepare(
-      `SELECT * FROM jobs
-       WHERE ${where.sql}
-       ORDER BY ${orderBy}
-       LIMIT ? OFFSET ?`,
-    )
-    .all(...where.params, perPage, (page - 1) * perPage) as Job[];
+  const jobs = await dbAll<Job>(
+    `SELECT * FROM jobs
+     WHERE ${where.sql}
+     ORDER BY ${orderBy}
+     LIMIT ? OFFSET ?`,
+    [...where.params, perPage, (page - 1) * perPage],
+  );
 
   return { jobs, total, page, perPage, totalPages };
 }
 
-export function getLatestPublicJobs(limit = 5): Job[] {
-  const db = getDb();
-  return db
-    .prepare(
-      `SELECT * FROM jobs
-       WHERE status = 'published'
-         AND (application_deadline IS NULL OR application_deadline >= ?)
-       ORDER BY is_featured DESC, published_at DESC, created_at DESC
-       LIMIT ?`,
-    )
-    .all(todayIST(), clamp(limit, 1, 50)) as Job[];
+export async function getLatestPublicJobs(limit = 5): Promise<Job[]> {
+  return dbAll<Job>(
+    `SELECT * FROM jobs
+     WHERE status = 'published'
+       AND (application_deadline IS NULL OR application_deadline >= ?)
+     ORDER BY is_featured DESC, published_at DESC, created_at DESC
+     LIMIT ?`,
+    [todayIST(), clamp(limit, 1, 50)],
+  );
 }
 
-export function getPublicJobBySlug(slug: string): Job | null {
-  const db = getDb();
-  const job = db
-    .prepare(
-      `SELECT * FROM jobs
-       WHERE slug = ?
-         AND status = 'published'
-         AND (application_deadline IS NULL OR application_deadline >= ?)`,
-    )
-    .get(slug, todayIST()) as Job | undefined;
-  return job ?? null;
+export async function getPublicJobBySlug(slug: string): Promise<Job | null> {
+  return dbGet<Job>(
+    `SELECT * FROM jobs
+     WHERE slug = ?
+       AND status = 'published'
+       AND (application_deadline IS NULL OR application_deadline >= ?)`,
+    [slug, todayIST()],
+  );
 }
 
-export function countPublicDemoJobs(): number {
-  const db = getDb();
-  const row = db
-    .prepare(
-      `SELECT COUNT(*) AS count FROM jobs
-       WHERE is_demo = 1
-         AND status = 'published'
-         AND (application_deadline IS NULL OR application_deadline >= ?)`,
-    )
-    .get(todayIST()) as { count: number };
-  return row.count;
+export async function countPublicDemoJobs(): Promise<number> {
+  const row = await dbGet<{ count: number }>(
+    `SELECT COUNT(*) AS count FROM jobs
+     WHERE is_demo = 1
+       AND status = 'published'
+       AND (application_deadline IS NULL OR application_deadline >= ?)`,
+    [todayIST()],
+  );
+  return row?.count ?? 0;
 }
 
-export function getJobById(id: string): Job | null {
-  const db = getDb();
-  const job = db.prepare("SELECT * FROM jobs WHERE id = ?").get(id) as Job | undefined;
-  return job ?? null;
+export async function getJobById(id: string): Promise<Job | null> {
+  return dbGet<Job>("SELECT * FROM jobs WHERE id = ?", [id]);
 }
 
-export function getAdminJobs(options: { search?: string; status?: string } = {}): Job[] {
-  const db = getDb();
+export async function getAdminJobs(
+  options: { search?: string; status?: string } = {},
+): Promise<Job[]> {
   const clauses: string[] = [];
   const params: string[] = [];
   const today = todayIST();
@@ -175,74 +166,63 @@ export function getAdminJobs(options: { search?: string; status?: string } = {})
   }
 
   const where = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
-  return db
-    .prepare(`SELECT * FROM jobs ${where} ORDER BY updated_at DESC`)
-    .all(...params) as Job[];
+  return dbAll<Job>(`SELECT * FROM jobs ${where} ORDER BY updated_at DESC`, params);
 }
 
-export function getDashboardStats(): DashboardStats {
-  const db = getDb();
+export async function getDashboardStats(): Promise<DashboardStats> {
   const today = todayIST();
-  const row = db
-    .prepare(
-      `SELECT
-         COUNT(*) AS total,
-         SUM(CASE WHEN status = 'published' AND (application_deadline IS NULL OR application_deadline >= ?) THEN 1 ELSE 0 END) AS published,
-         SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END) AS drafts,
-         SUM(CASE WHEN status = 'published' AND application_deadline IS NOT NULL AND application_deadline < ? THEN 1 ELSE 0 END) AS expired,
-         SUM(CASE WHEN status = 'archived' THEN 1 ELSE 0 END) AS archived
-       FROM jobs`,
-    )
-    .get(today, today) as {
+  const row = await dbGet<{
     total: number;
     published: number | null;
     drafts: number | null;
     expired: number | null;
     archived: number | null;
-  };
+  }>(
+    `SELECT
+       COUNT(*) AS total,
+       SUM(CASE WHEN status = 'published' AND (application_deadline IS NULL OR application_deadline >= ?) THEN 1 ELSE 0 END) AS published,
+       SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END) AS drafts,
+       SUM(CASE WHEN status = 'published' AND application_deadline IS NOT NULL AND application_deadline < ? THEN 1 ELSE 0 END) AS expired,
+       SUM(CASE WHEN status = 'archived' THEN 1 ELSE 0 END) AS archived
+     FROM jobs`,
+    [today, today],
+  );
 
   return {
-    total: row.total,
-    published: row.published ?? 0,
-    drafts: row.drafts ?? 0,
-    expired: row.expired ?? 0,
-    archived: row.archived ?? 0,
+    total: row?.total ?? 0,
+    published: row?.published ?? 0,
+    drafts: row?.drafts ?? 0,
+    expired: row?.expired ?? 0,
+    archived: row?.archived ?? 0,
   };
 }
 
-export function getRecentJobs(limit = 6): Job[] {
-  const db = getDb();
-  return db
-    .prepare("SELECT * FROM jobs ORDER BY updated_at DESC LIMIT ?")
-    .all(clamp(limit, 1, 20)) as Job[];
+export async function getRecentJobs(limit = 6): Promise<Job[]> {
+  return dbAll<Job>("SELECT * FROM jobs ORDER BY updated_at DESC LIMIT ?", [
+    clamp(limit, 1, 20),
+  ]);
 }
 
-export function findPotentialDuplicate(
+export async function findPotentialDuplicate(
   title: string,
   companyName: string,
   city: string,
   excludeId?: string,
-): Job | null {
-  const db = getDb();
-  const job = db
-    .prepare(
-      `SELECT * FROM jobs
-       WHERE lower(title) = lower(?)
-         AND lower(company_name) = lower(?)
-         AND lower(city) = lower(?)
-         AND status IN ('draft', 'published')
-         ${excludeId ? "AND id != ?" : ""}
-       LIMIT 1`,
-    )
-    .get(...(excludeId ? [title, companyName, city, excludeId] : [title, companyName, city])) as
-    | Job
-    | undefined;
-  return job ?? null;
+): Promise<Job | null> {
+  return dbGet<Job>(
+    `SELECT * FROM jobs
+     WHERE lower(title) = lower(?)
+       AND lower(company_name) = lower(?)
+       AND lower(city) = lower(?)
+       AND status IN ('draft', 'published')
+       ${excludeId ? "AND id != ?" : ""}
+     LIMIT 1`,
+    excludeId ? [title, companyName, city, excludeId] : [title, companyName, city],
+  );
 }
 
-export function slugExists(slug: string): boolean {
-  const db = getDb();
-  return Boolean(db.prepare("SELECT 1 FROM jobs WHERE slug = ?").get(slug));
+export async function slugExists(slug: string): Promise<boolean> {
+  return Boolean(await dbGet("SELECT 1 AS found FROM jobs WHERE slug = ?", [slug]));
 }
 
 export function isJobStatus(value: string): value is JobStatus {

@@ -6,7 +6,7 @@ import {
   getSettings,
   isEnabled,
 } from "@/lib/settings";
-import { getDb } from "@/lib/db";
+import { dbAll } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { formatDateTime } from "@/lib/dates";
 
@@ -15,19 +15,17 @@ export const metadata: Metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
   const session = await getSession();
-  const settings = getSettings();
-  const registration = getRegistrationConfig();
+  const settings = await getSettings();
+  const registration = await getRegistrationConfig();
 
-  const admins = getDb()
-    .prepare("SELECT id, email, name, is_active, created_at, last_login_at FROM admins ORDER BY created_at")
-    .all() as Array<{
+  const admins = await dbAll<{
     id: string;
     email: string;
     name: string;
     is_active: number;
     created_at: string;
     last_login_at: string | null;
-  }>;
+  }>("SELECT id, email, name, is_active, created_at, last_login_at FROM admins ORDER BY created_at");
 
   return (
     <>
@@ -177,7 +175,8 @@ export default async function SettingsPage() {
             update, publish and delete action calls the same server-side authorization guard.
             Public queries only select published, non-expired jobs and published articles.
             Database credentials and the application secret remain server-side environment
-            variables. The application uses SQLite, so use a host with a persistent disk.
+            variables. Content is stored in a remote libSQL/Turso database, so nothing is written
+            to the deployment filesystem.
           </p>
         </div>
       </section>

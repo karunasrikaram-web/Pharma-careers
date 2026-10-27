@@ -1,4 +1,4 @@
-import { getDb } from "@/lib/db";
+import { dbAll, dbBatch } from "@/lib/db";
 
 export interface SiteSettings {
   registration_popup_enabled: string;
@@ -20,12 +20,10 @@ const DEFAULTS: SiteSettings = {
   contact_email: "",
 };
 
-export function getSettings(): SiteSettings {
-  const db = getDb();
-  const rows = db.prepare("SELECT key, value FROM site_settings").all() as Array<{
-    key: string;
-    value: string;
-  }>;
+export async function getSettings(): Promise<SiteSettings> {
+  const rows = await dbAll<{ key: string; value: string }>(
+    "SELECT key, value FROM site_settings",
+  );
   const settings = { ...DEFAULTS };
   for (const row of rows) {
     if (row.key in settings) {
@@ -35,24 +33,27 @@ export function getSettings(): SiteSettings {
   return settings;
 }
 
-export function getSetting(key: keyof SiteSettings): string {
-  return getSettings()[key] ?? DEFAULTS[key];
+export async function getSetting(key: keyof SiteSettings): Promise<string> {
+  const settings = await getSettings();
+  return settings[key] ?? DEFAULTS[key];
 }
 
-export function saveSettings(values: Partial<SiteSettings>): void {
-  const db = getDb();
+export async function saveSettings(values: Partial<SiteSettings>): Promise<void> {
   const now = new Date().toISOString();
-  const statement = db.prepare(
-    `INSERT INTO site_settings (key, value, updated_at) VALUES (?, ?, ?)
-     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
-  );
-  const transaction = db.transaction(() => {
-    for (const [key, value] of Object.entries(values)) {
-      if (!(key in DEFAULTS) || typeof value !== "string") continue;
-      statement.run(key, value, now);
-    }
-  });
-  transaction();
+  const statements = [];
+
+  for (const [key, value] of Object.entries(values)) {
+    if (!(key in DEFAULTS) || typeof value !== "string") continue;
+    statements.push({
+      sql: `INSERT INTO site_settings (key, value, updated_at) VALUES (?, ?, ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+      args: [key, value, now],
+    });
+  }
+
+  if (statements.length > 0) {
+    await dbBatch(statements);
+  }
 }
 
 export function isEnabled(value: string): boolean {
@@ -66,8 +67,8 @@ export interface RegistrationConfig {
   privacyNote: string;
 }
 
-export function getRegistrationConfig(): RegistrationConfig {
-  const settings = getSettings();
+export async function getRegistrationConfig(): Promise<RegistrationConfig> {
+  const settings = await getSettings();
 
   const parsedDelay = Number(settings.registration_popup_delay_seconds);
   const delaySeconds = Number.isFinite(parsedDelay)

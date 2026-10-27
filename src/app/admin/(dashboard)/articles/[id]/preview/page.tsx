@@ -16,7 +16,7 @@ type Params = Promise<{ id: string }>;
 
 export default async function ArticlePreviewPage({ params }: { params: Params }) {
   const { id } = await params;
-  const article = getArticleById(id);
+  const article = await getArticleById(id);
   if (!article) notFound();
 
   const cover = safeArticleUrl(article.cover_image_url ?? "");

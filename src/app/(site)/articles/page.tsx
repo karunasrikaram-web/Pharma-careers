@@ -35,13 +35,13 @@ export default async function ArticlesPage({ searchParams }: { searchParams: Sea
   const category = first(params.category).trim().slice(0, 120);
   const requestedPage = Number.parseInt(first(params.page), 10);
 
-  const result = listPublicArticles({
+  const result = await listPublicArticles({
     q,
     category: category || undefined,
     page: Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1,
     perPage: 9,
   });
-  const categories = listCategories("article");
+  const categories = await listCategories("article");
   const hasFilters = Boolean(q || category);
   const activeCategory = categories.find((item) => item.slug === category);
 

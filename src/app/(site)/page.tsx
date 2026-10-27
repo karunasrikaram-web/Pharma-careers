@@ -20,11 +20,11 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
 };
 
-export default function HomePage() {
-  const jobs = getLatestPublicJobs(5);
-  const demoCount = countPublicDemoJobs();
-  const articles = getLatestPublicArticles(3);
-  const settings = getSettings();
+export default async function HomePage() {
+  const jobs = await getLatestPublicJobs(5);
+  const demoCount = await countPublicDemoJobs();
+  const articles = await getLatestPublicArticles(3);
+  const settings = await getSettings();
   const showJobs = isEnabled(settings.homepage_show_jobs);
   const showArticles = isEnabled(settings.homepage_show_articles);
 

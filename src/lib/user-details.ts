@@ -1,4 +1,4 @@
-import { getDb } from "@/lib/db";
+import { dbAll, dbGet } from "@/lib/db";
 import { USER_DETAIL_KINDS, USER_DETAIL_STATUSES } from "@/lib/constants";
 import type { UserDetail, UserDetailsStats } from "@/lib/types";
 
@@ -24,10 +24,11 @@ export function isUserDetailKind(value: string): boolean {
   return (USER_DETAIL_KINDS as readonly string[]).includes(value);
 }
 
-export function listUserDetails(filters: UserDetailFilters = {}): UserDetail[] {
-  const db = getDb();
+export async function listUserDetails(
+  filters: UserDetailFilters = {},
+): Promise<UserDetail[]> {
   const where: string[] = [];
-  const params: unknown[] = [];
+  const params: string[] = [];
 
   const search = filters.search?.trim().slice(0, 120);
   if (search) {
@@ -52,23 +53,19 @@ export function listUserDetails(filters: UserDetailFilters = {}): UserDetail[] {
   }
 
   const clause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
-  return db
-    .prepare(
-      `SELECT ${LIST_COLUMNS}
-       FROM user_details
-       ${clause}
-       ORDER BY created_at DESC
-       LIMIT 500`,
-    )
-    .all(...params) as UserDetail[];
+  return dbAll<UserDetail>(
+    `SELECT ${LIST_COLUMNS}
+     FROM user_details
+     ${clause}
+     ORDER BY created_at DESC
+     LIMIT 500`,
+    params,
+  );
 }
 
-export function getUserDetailById(id: string): UserDetail | null {
+export async function getUserDetailById(id: string): Promise<UserDetail | null> {
   if (!id) return null;
-  const row = getDb()
-    .prepare(`SELECT ${LIST_COLUMNS} FROM user_details WHERE id = ?`)
-    .get(id) as UserDetail | undefined;
-  return row ?? null;
+  return dbGet<UserDetail>(`SELECT ${LIST_COLUMNS} FROM user_details WHERE id = ?`, [id]);
 }
 
 export interface UserDetailResume {
@@ -78,69 +75,72 @@ export interface UserDetailResume {
   data: Buffer;
 }
 
-export function getUserDetailResume(id: string): UserDetailResume | null {
+export async function getUserDetailResume(id: string): Promise<UserDetailResume | null> {
   if (!id) return null;
-  const row = getDb()
-    .prepare(
-      `SELECT resume_name, resume_mime, resume_size, resume_data
-       FROM user_details
-       WHERE id = ? AND resume_data IS NOT NULL`,
-    )
-    .get(id) as
-    | {
-        resume_name: string | null;
-        resume_mime: string | null;
-        resume_size: number | null;
-        resume_data: Buffer;
-      }
-    | undefined;
+  const row = await dbGet<{
+    resume_name: string | null;
+    resume_mime: string | null;
+    resume_size: number | null;
+    resume_data: ArrayBuffer | Uint8Array;
+  }>(
+    `SELECT resume_name, resume_mime, resume_size, resume_data
+     FROM user_details
+     WHERE id = ? AND resume_data IS NOT NULL`,
+    [id],
+  );
 
   if (!row || !row.resume_data) return null;
+
+  const data = Buffer.isBuffer(row.resume_data)
+    ? row.resume_data
+    : Buffer.from(
+        row.resume_data instanceof Uint8Array
+          ? row.resume_data
+          : new Uint8Array(row.resume_data),
+      );
+
   return {
     name: row.resume_name?.trim() || "resume.pdf",
     mime: row.resume_mime?.trim() || "application/octet-stream",
-    size: row.resume_size ?? row.resume_data.length,
-    data: row.resume_data,
+    size: row.resume_size ?? data.length,
+    data,
   };
 }
 
-export function getUserDetailsStats(): UserDetailsStats {
-  const row = getDb()
-    .prepare(
-      `SELECT
-         COUNT(*) AS total,
-         COALESCE(SUM(CASE WHEN kind = 'job_alert' THEN 1 ELSE 0 END), 0) AS jobAlerts,
-         COALESCE(SUM(CASE WHEN kind = 'job_application' THEN 1 ELSE 0 END), 0) AS applications,
-         COALESCE(SUM(CASE WHEN resume_data IS NOT NULL THEN 1 ELSE 0 END), 0) AS resumes,
-         COALESCE(SUM(CASE WHEN status = 'new' THEN 1 ELSE 0 END), 0) AS newCount
-       FROM user_details`,
-    )
-    .get() as {
+export async function getUserDetailsStats(): Promise<UserDetailsStats> {
+  const row = await dbGet<{
     total: number;
     jobAlerts: number;
     applications: number;
     resumes: number;
     newCount: number;
-  };
+  }>(
+    `SELECT
+       COUNT(*) AS total,
+       COALESCE(SUM(CASE WHEN kind = 'job_alert' THEN 1 ELSE 0 END), 0) AS jobAlerts,
+       COALESCE(SUM(CASE WHEN kind = 'job_application' THEN 1 ELSE 0 END), 0) AS applications,
+       COALESCE(SUM(CASE WHEN resume_data IS NOT NULL THEN 1 ELSE 0 END), 0) AS resumes,
+       COALESCE(SUM(CASE WHEN status = 'new' THEN 1 ELSE 0 END), 0) AS newCount
+     FROM user_details`,
+  );
 
   return {
-    total: row.total,
-    jobAlerts: row.jobAlerts,
-    applications: row.applications,
-    resumes: row.resumes,
-    newCount: row.newCount,
+    total: row?.total ?? 0,
+    jobAlerts: row?.jobAlerts ?? 0,
+    applications: row?.applications ?? 0,
+    resumes: row?.resumes ?? 0,
+    newCount: row?.newCount ?? 0,
   };
 }
 
-export function getRecentUserDetails(limit = 5): UserDetail[] {
-  return getDb()
-    .prepare(
-      `SELECT ${LIST_COLUMNS}
-       FROM user_details
-       ORDER BY created_at DESC
-       LIMIT ?`,
-    )
-    .all(Math.max(1, Math.min(20, limit))) as UserDetail[];
+export async function getRecentUserDetails(limit = 5): Promise<UserDetail[]> {
+  return dbAll<UserDetail>(
+    `SELECT ${LIST_COLUMNS}
+     FROM user_details
+     ORDER BY created_at DESC
+     LIMIT ?`,
+    [Math.max(1, Math.min(20, limit))],
+  );
 }
 
 export function formatBytes(bytes: number | null | undefined): string {

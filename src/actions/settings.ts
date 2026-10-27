@@ -44,7 +44,7 @@ export async function updateSettingsAction(
   }
 
   try {
-    saveSettings({
+    await saveSettings({
       registration_popup_enabled: formData.get("registration_popup_enabled") ? "1" : "0",
       registration_popup_delay_seconds: String(Math.round(delay)),
       registration_popup_title: title,

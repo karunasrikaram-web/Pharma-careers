@@ -17,7 +17,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
   await requireAdmin();
 
   const { id } = await params;
-  const resume = getUserDetailResume(id);
+  const resume = await getUserDetailResume(id);
   if (!resume) {
     return new Response("Resume not found.", {
       status: 404,

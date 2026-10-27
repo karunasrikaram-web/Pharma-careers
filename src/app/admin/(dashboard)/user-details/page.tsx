@@ -33,8 +33,8 @@ export default async function AdminUserDetailsPage({
   const kind = first(params.kind).trim();
   const status = first(params.status).trim();
 
-  const records = listUserDetails({ search: q, kind, status });
-  const stats = getUserDetailsStats();
+  const records = await listUserDetails({ search: q, kind, status });
+  const stats = await getUserDetailsStats();
   const filtered = Boolean(q || kind || status);
 
   return (

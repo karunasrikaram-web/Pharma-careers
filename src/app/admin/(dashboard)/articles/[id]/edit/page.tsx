@@ -33,10 +33,10 @@ export default async function EditArticlePage({
 }) {
   const { id } = await params;
   const query = await searchParams;
-  const article = getArticleById(id);
+  const article = await getArticleById(id);
   if (!article) notFound();
 
-  const categories = listCategories("article");
+  const categories = await listCategories("article");
   const scheduledFuture =
     article.status === "published" &&
     article.scheduled_at &&

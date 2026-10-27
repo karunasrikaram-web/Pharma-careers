@@ -25,7 +25,7 @@ export default async function AdminJobsPage({ searchParams }: { searchParams: Se
   const params = await searchParams;
   const q = first(params.q).trim().slice(0, 120);
   const status = first(params.status).trim();
-  const jobs = getAdminJobs({ search: q, status });
+  const jobs = await getAdminJobs({ search: q, status });
 
   return (
     <>

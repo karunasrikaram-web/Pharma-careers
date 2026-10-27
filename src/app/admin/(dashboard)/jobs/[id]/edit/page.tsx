@@ -33,7 +33,7 @@ export default async function EditJobPage({
 }) {
   const { id } = await params;
   const query = await searchParams;
-  const job = getJobById(id);
+  const job = await getJobById(id);
   if (!job) notFound();
 
   const expired = job.status === "published" && isExpired(job.application_deadline);

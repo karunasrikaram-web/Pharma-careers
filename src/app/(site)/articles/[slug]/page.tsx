@@ -14,7 +14,7 @@ type Params = Promise<{ slug: string }>;
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { slug } = await params;
-  const article = getPublicArticleBySlug(slug);
+  const article = await getPublicArticleBySlug(slug);
   if (!article) {
     return { title: "Article not found", robots: { index: false, follow: false } };
   }
@@ -45,10 +45,10 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 
 export default async function ArticleDetailPage({ params }: { params: Params }) {
   const { slug } = await params;
-  const article = getPublicArticleBySlug(slug);
+  const article = await getPublicArticleBySlug(slug);
   if (!article) notFound();
 
-  const related = getRelatedArticles(article, 3);
+  const related = await getRelatedArticles(article, 3);
   const cover = safeArticleUrl(article.cover_image_url ?? "");
   const content = sanitizeArticleHtml(article.content);
   const published = article.published_at ?? article.scheduled_at;

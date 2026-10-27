@@ -1,9 +1,8 @@
 import { loadEnv } from "./env";
-import { getDb } from "../src/lib/db";
+import { dbBatch, dbGet } from "../src/lib/db";
 
 loadEnv();
 
-const db = getDb();
 const now = new Date();
 const isoDaysAgo = (days: number) =>
   new Date(now.getTime() - days * 86_400_000).toISOString();
@@ -157,45 +156,46 @@ const jobs = [
   },
 ];
 
-const insertJob = db.prepare(
-  `INSERT OR IGNORE INTO jobs (
+async function main(): Promise<void> {
+const insertJobSql = `INSERT OR IGNORE INTO jobs (
      id, slug, title, company_name, department, city, state,
      experience_min, experience_max, employment_type, salary_range,
      description, responsibilities, qualifications, skills,
      application_instructions, application_url, published_at,
      application_deadline, status, is_featured, is_demo,
      created_by, created_at, updated_at
-   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, NULL, ?, ?, 'published', ?, 1, NULL, ?, ?)`,
-);
+   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, NULL, ?, ?, 'published', ?, 1, NULL, ?, ?)`;
 
-const jobTransaction = db.transaction(() => {
-  for (const job of jobs) {
+await dbBatch(
+  jobs.map((job) => {
     const published = isoDaysAgo(job.daysAgo);
-    insertJob.run(
-      job.id,
-      job.slug,
-      job.title,
-      job.company_name,
-      job.department,
-      job.city,
-      job.state,
-      job.experience_min,
-      job.experience_max,
-      job.employment_type,
-      job.description,
-      job.responsibilities,
-      job.qualifications,
-      job.skills,
-      job.application_instructions,
-      published,
-      dateDaysFromNow(45),
-      job.featured,
-      published,
-      published,
-    );
-  }
-});
-jobTransaction();
+    return {
+      sql: insertJobSql,
+      args: [
+        job.id,
+        job.slug,
+        job.title,
+        job.company_name,
+        job.department,
+        job.city,
+        job.state,
+        job.experience_min,
+        job.experience_max,
+        job.employment_type,
+        job.description,
+        job.responsibilities,
+        job.qualifications,
+        job.skills,
+        job.application_instructions,
+        published,
+        dateDaysFromNow(45),
+        job.featured,
+        published,
+        published,
+      ],
+    };
+  }),
+);
 
 const articles = [
   {
@@ -292,37 +292,48 @@ const articles = [
   },
 ];
 
-const insertArticle = db.prepare(
-  `INSERT OR IGNORE INTO articles (
+const insertArticleSql = `INSERT OR IGNORE INTO articles (
      id, title, slug, excerpt, content, cover_image_url, category_id,
      author_name, tags, seo_title, seo_description, status, is_featured,
      is_demo, scheduled_at, published_at, created_by, created_at, updated_at
    ) VALUES (?, ?, ?, ?, ?, NULL, ?, 'Pharma Careers Editorial Team', ?, NULL, NULL,
-             'published', ?, 1, NULL, ?, NULL, ?, ?)`,
+             'published', ?, 1, NULL, ?, NULL, ?, ?)`;
+
+await dbBatch(
+  articles.map((article, index) => {
+    const published = isoDaysAgo(index + 1);
+    return {
+      sql: insertArticleSql,
+      args: [
+        article.id,
+        article.title,
+        article.slug,
+        article.excerpt,
+        article.content,
+        article.category_id,
+        article.tags,
+        article.featured,
+        published,
+        published,
+        published,
+      ],
+    };
+  }),
 );
 
-const articleTransaction = db.transaction(() => {
-  articles.forEach((article, index) => {
-    const published = isoDaysAgo(index + 1);
-    insertArticle.run(
-      article.id,
-      article.title,
-      article.slug,
-      article.excerpt,
-      article.content,
-      article.category_id,
-      article.tags,
-      article.featured,
-      published,
-      published,
-      published,
-    );
-  });
-});
-articleTransaction();
-
-const jobCount = (db.prepare("SELECT COUNT(*) AS count FROM jobs WHERE is_demo = 1").get() as { count: number }).count;
-const articleCount = (db.prepare("SELECT COUNT(*) AS count FROM articles WHERE is_demo = 1").get() as { count: number }).count;
+const jobCount =
+  (await dbGet<{ count: number }>("SELECT COUNT(*) AS count FROM jobs WHERE is_demo = 1"))
+    ?.count ?? 0;
+const articleCount =
+  (await dbGet<{ count: number }>(
+    "SELECT COUNT(*) AS count FROM articles WHERE is_demo = 1",
+  ))?.count ?? 0;
 
 console.log(`Demo data ready: ${jobCount} demo jobs and ${articleCount} demo articles.`);
 console.log("Demo records are clearly labelled in the public interface.");
+}
+
+main().catch((error) => {
+  console.error("Failed to seed demo data:", error);
+  process.exitCode = 1;
+});

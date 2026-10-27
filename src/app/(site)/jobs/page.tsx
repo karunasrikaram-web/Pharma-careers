@@ -44,7 +44,7 @@ export default async function JobsPage({
   const sort = first(params.sort).trim() === "latest" ? "latest" : "";
   const requestedPage = Number.parseInt(first(params.page), 10);
 
-  const result = listPublicJobs({
+  const result = await listPublicJobs({
     q,
     location,
     department,
@@ -53,7 +53,7 @@ export default async function JobsPage({
     perPage: 9,
   });
 
-  const demoCount = countPublicDemoJobs();
+  const demoCount = await countPublicDemoJobs();
   const hasFilters = Boolean(q || location || department);
   const resultLabel = `${result.total} job${result.total === 1 ? "" : "s"} found`;
   const sortHref =

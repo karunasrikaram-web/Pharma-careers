@@ -11,7 +11,7 @@ type Params = Promise<{ slug: string }>;
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { slug } = await params;
-  const job = getPublicJobBySlug(slug);
+  const job = await getPublicJobBySlug(slug);
 
   if (!job) {
     return { title: "Job not found", robots: { index: false, follow: false } };
@@ -40,7 +40,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 
 export default async function JobDetailPage({ params }: { params: Params }) {
   const { slug } = await params;
-  const job = getPublicJobBySlug(slug);
+  const job = await getPublicJobBySlug(slug);
 
   if (!job) notFound();
 

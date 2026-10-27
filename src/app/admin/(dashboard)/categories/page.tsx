@@ -8,7 +8,7 @@ import {
   renameCategoryAction,
 } from "@/actions/articles";
 import { listCategories } from "@/lib/articles";
-import { getDb } from "@/lib/db";
+import { dbAll } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Categories" };
@@ -21,10 +21,10 @@ function first(value: string | string[] | undefined): string {
 
 export default async function CategoriesPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  const categories = listCategories("article");
-  const usageRows = getDb()
-    .prepare("SELECT category_id, COUNT(*) AS count FROM articles GROUP BY category_id")
-    .all() as Array<{ category_id: string | null; count: number }>;
+  const categories = await listCategories("article");
+  const usageRows = await dbAll<{ category_id: string | null; count: number }>(
+    "SELECT category_id, COUNT(*) AS count FROM articles GROUP BY category_id",
+  );
   const usage = new Map(usageRows.map((row) => [row.category_id ?? "", row.count]));
 
   return (

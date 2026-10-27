@@ -23,15 +23,15 @@ function jobStatusLabel(job: Job): { label: string; className: string } {
   return { label: job.status, className: `status-${job.status}` };
 }
 
-export default function AdminDashboardPage() {
-  const jobStats = getDashboardStats();
-  const articleStats = getArticleStats();
-  const userStats = getUserDetailsStats();
-  const messageStats = getMessageCounts();
-  const reportStats = getReportCounts();
-  const recentJobs = getRecentJobs(6);
-  const recentArticles = (listAdminArticles() as Article[]).slice(0, 5);
-  const recentUserDetails = getRecentUserDetails(5);
+export default async function AdminDashboardPage() {
+  const jobStats = await getDashboardStats();
+  const articleStats = await getArticleStats();
+  const userStats = await getUserDetailsStats();
+  const messageStats = await getMessageCounts();
+  const reportStats = await getReportCounts();
+  const recentJobs = await getRecentJobs(6);
+  const recentArticles = (await listAdminArticles()).slice(0, 5);
+  const recentUserDetails = await getRecentUserDetails(5);
 
   const today = todayIST();
   const soon = new Date(`${today}T00:00:00Z`);

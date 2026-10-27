@@ -3,7 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { getDb } from "@/lib/db";
+import { dbGet, dbRun } from "@/lib/db";
 import { getClientIp, hashIp } from "@/lib/config";
 import { todayIST } from "@/lib/dates";
 import { checkFormRateLimit } from "@/lib/rate-limit";
@@ -73,12 +73,10 @@ export async function contactAction(
   }
 
   try {
-    getDb()
-      .prepare(
-        `INSERT INTO contact_messages (id, name, email, subject, message, status, ip_hash, created_at)
-         VALUES (?, ?, ?, ?, ?, 'new', ?, ?)`,
-      )
-      .run(
+    await dbRun(
+      `INSERT INTO contact_messages (id, name, email, subject, message, status, ip_hash, created_at)
+       VALUES (?, ?, ?, ?, ?, 'new', ?, ?)`,
+      [
         randomUUID(),
         parsed.data.name,
         parsed.data.email.toLowerCase(),
@@ -86,7 +84,8 @@ export async function contactAction(
         parsed.data.message,
         ipHash,
         new Date().toISOString(),
-      );
+      ],
+    );
   } catch (error) {
     console.error("Failed to store contact message.", error);
     return {
@@ -133,14 +132,12 @@ export async function reportJobAction(
     };
   }
 
-  const db = getDb();
-  const job = db
-    .prepare(
-      `SELECT id FROM jobs
-       WHERE id = ? AND status = 'published'
-         AND (application_deadline IS NULL OR application_deadline >= ?)`,
-    )
-    .get(parsed.data.job_id, todayIST()) as { id: string } | undefined;
+  const job = await dbGet<{ id: string }>(
+    `SELECT id FROM jobs
+     WHERE id = ? AND status = 'published'
+       AND (application_deadline IS NULL OR application_deadline >= ?)`,
+    [parsed.data.job_id, todayIST()],
+  );
 
   if (!job) {
     return {
@@ -172,17 +169,18 @@ export async function reportJobAction(
   }
 
   try {
-    db.prepare(
+    await dbRun(
       `INSERT INTO job_reports (id, job_id, reason, details, reporter_email, status, ip_hash, created_at)
        VALUES (?, ?, ?, ?, ?, 'open', ?, ?)`,
-    ).run(
-      randomUUID(),
-      job.id,
-      parsed.data.reason,
-      parsed.data.details?.trim() || null,
-      parsed.data.reporter_email?.toLowerCase() || null,
-      ipHash,
-      new Date().toISOString(),
+      [
+        randomUUID(),
+        job.id,
+        parsed.data.reason,
+        parsed.data.details?.trim() || null,
+        parsed.data.reporter_email?.toLowerCase() || null,
+        ipHash,
+        new Date().toISOString(),
+      ],
     );
   } catch (error) {
     console.error("Failed to store job report.", error);

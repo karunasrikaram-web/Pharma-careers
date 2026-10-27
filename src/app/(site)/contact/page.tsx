@@ -13,8 +13,8 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default function ContactPage() {
-  const settings = getSettings();
+export default async function ContactPage() {
+  const settings = await getSettings();
   const contactEmail =
     settings.contact_email.trim() || process.env.NEXT_PUBLIC_CONTACT_EMAIL?.trim();
 

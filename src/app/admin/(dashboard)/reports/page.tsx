@@ -27,8 +27,8 @@ export default async function AdminReportsPage({
   const status = (STATUSES as readonly string[]).includes(requestedStatus)
     ? requestedStatus
     : "";
-  const reports = listJobReports(status || undefined);
-  const counts = getReportCounts();
+  const reports = await listJobReports(status || undefined);
+  const counts = await getReportCounts();
 
   return (
     <>

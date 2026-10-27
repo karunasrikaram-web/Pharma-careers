@@ -19,8 +19,8 @@ export default async function AdminArticlesPage({ searchParams }: { searchParams
   const q = first(params.q).trim().slice(0, 120);
   const status = first(params.status).trim();
   const category = first(params.category).trim();
-  const articles = listAdminArticles({ q, status, category });
-  const categories = listCategories("article");
+  const articles = await listAdminArticles({ q, status, category });
+  const categories = await listCategories("article");
 
   return (
     <>

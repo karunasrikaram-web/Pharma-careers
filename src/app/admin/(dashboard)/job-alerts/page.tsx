@@ -99,7 +99,7 @@ function JobAlertRow({ job, today }: { job: Job; today: string }) {
 export default async function JobAlertsPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const today = todayIST();
-  const allJobs = getAdminJobs({});
+  const allJobs = await getAdminJobs({});
   const published = allJobs.filter((job) => job.status === "published");
   const activePublished = published.filter((job) => !isExpired(job.application_deadline, today));
   const recent = [...activePublished]
@@ -114,8 +114,8 @@ export default async function JobAlertsPage({ searchParams }: { searchParams: Se
     })
     .sort((a, b) => (a.application_deadline ?? "").localeCompare(b.application_deadline ?? ""));
 
-  const popup = getRegistrationConfig();
-  const settings = getSettings();
+  const popup = await getRegistrationConfig();
+  const settings = await getSettings();
 
   return (
     <>

@@ -8,8 +8,8 @@ import { EMPTY_ARTICLE_FORM } from "@/lib/validation";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Create article" };
 
-export default function NewArticlePage() {
-  const categories = listCategories("article");
+export default async function NewArticlePage() {
+  const categories = await listCategories("article");
 
   return (
     <>
