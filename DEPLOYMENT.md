@@ -88,6 +88,13 @@ Check connectivity and record counts:
 npm run test:db
 ```
 
+After deploying, `GET /api/health` reports whether the live build can reach the database and
+which commit is deployed. It never exposes credentials or content:
+
+```json
+{ "status": "ok", "database": "connected", "commit": "6ffbe35" }
+```
+
 ## 4. Migrate existing local content
 
 If the local database already contains real content, export it and load it into Turso before

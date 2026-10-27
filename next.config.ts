@@ -2,6 +2,13 @@ import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV !== "production";
 
+if (process.env.VERCEL && !process.env.TURSO_DATABASE_URL) {
+  console.warn(
+    "[pharma-careers] TURSO_DATABASE_URL is not set for this deployment. " +
+      "Pages that read the database will return an error until the Turso variables are configured.",
+  );
+}
+
 const contentSecurityPolicy = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,

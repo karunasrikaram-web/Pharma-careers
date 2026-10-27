@@ -23,14 +23,29 @@ interface DatabaseConfig {
   authToken?: string;
 }
 
+/**
+ * Hosts where the application directory is read-only and ephemeral. On these
+ * platforms a local SQLite file can never be used, so the code must fail with a
+ * configuration error instead of trying to create a directory.
+ */
+function isServerlessRuntime(): boolean {
+  return Boolean(
+    process.env.VERCEL ||
+      process.env.NETLIFY ||
+      process.env.AWS_LAMBDA_FUNCTION_NAME ||
+      process.env.LAMBDA_TASK_ROOT ||
+      process.env.FUNCTIONS_WORKER_RUNTIME,
+  );
+}
+
 function resolveDatabaseConfig(): DatabaseConfig {
   const remoteUrl = process.env.TURSO_DATABASE_URL?.trim();
-  const onVercel = Boolean(process.env.VERCEL);
+  const serverless = isServerlessRuntime();
 
   if (remoteUrl) {
-    if (onVercel && remoteUrl.startsWith("file:")) {
+    if (serverless && remoteUrl.startsWith("file:")) {
       throw new Error(
-        "TURSO_DATABASE_URL points to a local file, which Vercel cannot use. " +
+        "TURSO_DATABASE_URL points to a local file, which cannot be used on a serverless host. " +
           "Set it to the libsql:// URL of your Turso database instead.",
       );
     }
@@ -41,11 +56,11 @@ function resolveDatabaseConfig(): DatabaseConfig {
     };
   }
 
-  if (onVercel) {
+  if (serverless) {
     throw new Error(
       "No persistent database is configured. Set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN " +
-        "in the Vercel project environment variables. Vercel's filesystem is read-only, so a " +
-        "local SQLite file cannot be used in production.",
+        "in the hosting project's environment variables. Serverless filesystems are read-only, " +
+        "so a local SQLite file cannot be used in production.",
     );
   }
 
@@ -54,7 +69,15 @@ function resolveDatabaseConfig(): DatabaseConfig {
   const absolute = path.isAbsolute(value) ? value : path.join(process.cwd(), value);
 
   // Local development only: create the directory that holds the SQLite file.
-  fs.mkdirSync(path.dirname(absolute), { recursive: true });
+  try {
+    fs.mkdirSync(path.dirname(absolute), { recursive: true });
+  } catch (error) {
+    throw new Error(
+      `Could not create the local database directory for ${absolute}. ` +
+        "If this is a deployment, set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN instead.",
+      { cause: error },
+    );
+  }
 
   return { url: `file:${absolute}` };
 }
