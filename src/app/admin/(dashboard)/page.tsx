@@ -8,6 +8,7 @@ import {
   getUserDetailsStats,
   userDetailKindLabel,
 } from "@/lib/user-details";
+import { getMessageCounts, getReportCounts } from "@/lib/admin-data";
 import { formatDate, formatDateTime, isExpired, todayIST } from "@/lib/dates";
 import type { Article, Job } from "@/lib/types";
 
@@ -26,6 +27,8 @@ export default function AdminDashboardPage() {
   const jobStats = getDashboardStats();
   const articleStats = getArticleStats();
   const userStats = getUserDetailsStats();
+  const messageStats = getMessageCounts();
+  const reportStats = getReportCounts();
   const recentJobs = getRecentJobs(6);
   const recentArticles = (listAdminArticles() as Article[]).slice(0, 5);
   const recentUserDetails = getRecentUserDetails(5);
@@ -146,6 +149,42 @@ export default function AdminDashboardPage() {
             <p className="stat-card-label">Resumes received</p>
             <p className="stat-card-value">{userStats.resumes}</p>
             <p className="stat-card-note">Downloadable by administrators only</p>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="inbox-stats-heading">
+        <h2 id="inbox-stats-heading" className="sr-only">
+          Messages and reports statistics
+        </h2>
+        <div className="stats-grid">
+          <div className="stat-card">
+            <p className="stat-card-label">New messages</p>
+            <p className="stat-card-value">{messageStats.unread}</p>
+            <p className="stat-card-note">
+              <Link href="/admin/messages?status=new" className="text-link">
+                Review messages
+              </Link>
+            </p>
+          </div>
+          <div className="stat-card">
+            <p className="stat-card-label">Open reports</p>
+            <p className="stat-card-value">{reportStats.open}</p>
+            <p className="stat-card-note">
+              <Link href="/admin/reports?status=open" className="text-link">
+                Review reports
+              </Link>
+            </p>
+          </div>
+          <div className="stat-card">
+            <p className="stat-card-label">Total messages</p>
+            <p className="stat-card-value">{messageStats.total}</p>
+            <p className="stat-card-note">Contact-form messages received</p>
+          </div>
+          <div className="stat-card">
+            <p className="stat-card-label">Total reports</p>
+            <p className="stat-card-value">{reportStats.total}</p>
+            <p className="stat-card-note">Listing reports received</p>
           </div>
         </div>
       </section>

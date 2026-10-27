@@ -21,6 +21,14 @@ function first(value: string | string[] | undefined): string {
   return Array.isArray(value) ? value[0] ?? "" : value ?? "";
 }
 
+function articlesHref(q: string, category?: string): string {
+  const search = new URLSearchParams();
+  if (q) search.set("q", q);
+  if (category) search.set("category", category);
+  const query = search.toString();
+  return query ? `/articles?${query}` : "/articles";
+}
+
 export default async function ArticlesPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const q = first(params.q).trim().slice(0, 120);
@@ -75,7 +83,7 @@ export default async function ArticlesPage({ searchParams }: { searchParams: Sea
                 Search
               </button>
             </form>
-            <Link href="/articles" className={`chip${!category ? " is-active" : ""}`}>
+            <Link href={articlesHref(q)} className={`chip${!category ? " is-active" : ""}`}>
               All categories
             </Link>
           </div>
@@ -86,8 +94,8 @@ export default async function ArticlesPage({ searchParams }: { searchParams: Sea
                 key={item.id}
                 href={
                   item.slug === category
-                    ? "/articles"
-                    : `/articles?${new URLSearchParams({ ...(q ? { q } : {}), category: item.slug }).toString()}`
+                    ? articlesHref(q)
+                    : articlesHref(q, item.slug)
                 }
                 className={`chip${item.slug === category ? " is-active" : ""}`}
               >

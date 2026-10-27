@@ -23,6 +23,15 @@ function first(value: string | string[] | undefined): string {
   return Array.isArray(value) ? value[0] ?? "" : value ?? "";
 }
 
+function buildJobsHref(values: Record<string, string | undefined>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(values)) {
+    if (value) search.set(key, value);
+  }
+  const query = search.toString();
+  return query ? `/jobs?${query}` : "/jobs";
+}
+
 export default async function JobsPage({
   searchParams,
 }: {
@@ -32,12 +41,14 @@ export default async function JobsPage({
   const q = first(params.q).trim().slice(0, 120);
   const location = first(params.location).trim().slice(0, 80);
   const department = first(params.department).trim().slice(0, 80);
+  const sort = first(params.sort).trim() === "latest" ? "latest" : "";
   const requestedPage = Number.parseInt(first(params.page), 10);
 
   const result = listPublicJobs({
     q,
     location,
     department,
+    sort: sort === "latest" ? "latest" : undefined,
     page: Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1,
     perPage: 9,
   });
@@ -45,6 +56,10 @@ export default async function JobsPage({
   const demoCount = countPublicDemoJobs();
   const hasFilters = Boolean(q || location || department);
   const resultLabel = `${result.total} job${result.total === 1 ? "" : "s"} found`;
+  const sortHref =
+    sort === "latest"
+      ? buildJobsHref({ q, location, department })
+      : buildJobsHref({ q, location, department, sort: "latest" });
 
   return (
     <div className="page-shell">
@@ -73,7 +88,7 @@ export default async function JobsPage({
           </h2>
           <DepartmentChips
             activeDepartment={department || undefined}
-            preserve={{ q, location }}
+            preserve={{ q, location, sort }}
           />
         </div>
       </section>
@@ -99,8 +114,8 @@ export default async function JobsPage({
                 </p>
               ) : null}
             </div>
-            <Link className="link-arrow" href="/jobs?sort=latest">
-              Latest first
+            <Link className="link-arrow" href={sortHref}>
+              {sort === "latest" ? "Featured first" : "Latest first"}
             </Link>
           </div>
 
@@ -116,7 +131,7 @@ export default async function JobsPage({
               <Pagination
                 page={result.page}
                 totalPages={result.totalPages}
-                params={{ q, location, department }}
+                params={{ q, location, department, sort }}
               />
             </>
           ) : hasFilters ? (

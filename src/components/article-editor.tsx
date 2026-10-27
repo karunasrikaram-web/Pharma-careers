@@ -80,6 +80,12 @@ export function ArticleEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialValues.content]);
 
+  // A failed submit keeps the form mounted; reset the hidden intent so a later
+  // Enter key press does not repeat the previous action (for example preview).
+  useEffect(() => {
+    if (intentRef.current) intentRef.current.value = "save";
+  }, [state]);
+
   function runCommand(command: string, value?: string) {
     const editor = editorRef.current;
     if (!editor) return;
@@ -416,7 +422,7 @@ export function ArticleEditor({
             <div className="admin-panel-head">
               <div>
                 <h2>Preview</h2>
-                <p>Preview saves the current draft privately first.</p>
+                <p>Preview saves your edits first without changing publication status.</p>
               </div>
             </div>
             <div className="admin-panel-body">

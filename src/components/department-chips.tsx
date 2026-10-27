@@ -10,15 +10,16 @@ interface DepartmentChipsProps {
 
 function buildHref(
   basePath: string,
-  department: string,
+  department: string | undefined,
   preserve?: Record<string, string | undefined>,
 ): string {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(preserve ?? {})) {
     if (value) params.set(key, value);
   }
-  params.set("department", department);
-  return `${basePath}?${params.toString()}`;
+  if (department) params.set("department", department);
+  const query = params.toString();
+  return query ? `${basePath}?${query}` : basePath;
 }
 
 export function DepartmentChips({
@@ -33,7 +34,11 @@ export function DepartmentChips({
         return (
           <Link
             key={department}
-            href={active ? basePath : buildHref(basePath, department, preserve)}
+            href={
+              active
+                ? buildHref(basePath, undefined, preserve)
+                : buildHref(basePath, department, preserve)
+            }
             className={`chip${active ? " is-active" : ""}`}
             aria-current={active ? "true" : undefined}
           >
@@ -43,7 +48,7 @@ export function DepartmentChips({
         );
       })}
       {activeDepartment ? (
-        <Link href={basePath} className="chip-reset">
+        <Link href={buildHref(basePath, undefined, preserve)} className="chip-reset">
           Clear department
         </Link>
       ) : null}

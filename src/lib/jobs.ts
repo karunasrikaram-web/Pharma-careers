@@ -78,11 +78,16 @@ export function listPublicJobs(filters: JobFilters = {}): PaginatedJobs {
   const totalPages = Math.max(1, Math.ceil(total / perPage));
   const page = Math.min(requestedPage, totalPages);
 
+  const orderBy =
+    filters.sort === "latest"
+      ? "COALESCE(published_at, created_at) DESC, created_at DESC"
+      : "is_featured DESC, published_at DESC, created_at DESC";
+
   const jobs = db
     .prepare(
       `SELECT * FROM jobs
        WHERE ${where.sql}
-       ORDER BY is_featured DESC, published_at DESC, created_at DESC
+       ORDER BY ${orderBy}
        LIMIT ? OFFSET ?`,
     )
     .all(...where.params, perPage, (page - 1) * perPage) as Job[];

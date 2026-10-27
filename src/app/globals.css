@@ -3005,6 +3005,21 @@ ol {
   color: #175cd3;
 }
 
+.status-read {
+  background: #f2f4f7;
+  color: #344054;
+}
+
+.status-open {
+  background: #fffaeb;
+  color: #b54708;
+}
+
+.status-resolved {
+  background: #ecfdf3;
+  color: #067647;
+}
+
 .status-reviewed {
   background: #f2f4f7;
   color: #344054;
@@ -3035,6 +3050,27 @@ ol {
   white-space: pre-wrap;
   color: var(--ink-soft);
   font-size: 14px;
+  line-height: 1.65;
+}
+
+.admin-message summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--green-900);
+}
+
+.admin-message summary:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.admin-message-body {
+  margin-top: 8px;
+  max-width: 640px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--ink-soft);
+  font-size: 13px;
   line-height: 1.65;
 }
 

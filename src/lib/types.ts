@@ -65,6 +65,7 @@ export interface JobFilters {
   q?: string;
   location?: string;
   department?: string;
+  sort?: "latest";
   page?: number;
   perPage?: number;
 }

@@ -133,7 +133,7 @@ export default async function AdminJobsPage({ searchParams }: { searchParams: Se
                           >
                             Edit
                           </Link>
-                          {job.status === "published" ? (
+                          {job.status === "published" && !isExpired(job.application_deadline) ? (
                             <Link
                               href={`/jobs/${job.slug}`}
                               target="_blank"

@@ -63,6 +63,7 @@ export async function saveArticleAction(
   const data = parsed.data;
   const values = parsed.values;
   const articleId = values.id.trim() || null;
+  const isPreview = values.intent === "preview";
   const db = getDb();
   const now = new Date().toISOString();
   const content = sanitizeArticleHtml(data.content);
@@ -108,7 +109,15 @@ export async function saveArticleAction(
         };
       }
 
-      const publishedAt = resolvePublishedAt(data.status, data.scheduled_at, existing.published_at);
+      // A preview must never change whether an article is public. New and
+      // existing publication states are preserved while the content is saved.
+      const nextStatus = isPreview ? existing.status : data.status;
+      const nextScheduledAt = isPreview ? existing.scheduled_at : data.scheduled_at ?? null;
+      const publishedAt = resolvePublishedAt(
+        nextStatus,
+        nextScheduledAt ?? undefined,
+        existing.published_at,
+      );
       db.prepare(
         `UPDATE articles SET
            title = ?, slug = ?, excerpt = ?, content = ?, cover_image_url = ?,
@@ -126,9 +135,9 @@ export async function saveArticleAction(
         data.tags ?? null,
         data.seo_title ?? null,
         data.seo_description ?? null,
-        data.status,
+        nextStatus,
         data.is_featured ? 1 : 0,
-        data.scheduled_at ? new Date(data.scheduled_at).toISOString() : null,
+        nextScheduledAt ? new Date(nextScheduledAt).toISOString() : null,
         publishedAt,
         now,
         articleId,
@@ -140,7 +149,13 @@ export async function saveArticleAction(
       if (articleSlugExists(savedSlug)) {
         savedSlug = uniqueSlug(data.title);
       }
-      const publishedAt = resolvePublishedAt(data.status, data.scheduled_at, null);
+      const nextStatus = isPreview ? "draft" : data.status;
+      const nextScheduledAt = isPreview ? null : data.scheduled_at ?? null;
+      const publishedAt = resolvePublishedAt(
+        nextStatus,
+        nextScheduledAt ?? undefined,
+        null,
+      );
 
       db.prepare(
         `INSERT INTO articles (
@@ -160,9 +175,9 @@ export async function saveArticleAction(
         data.tags ?? null,
         data.seo_title ?? null,
         data.seo_description ?? null,
-        data.status,
+        nextStatus,
         data.is_featured ? 1 : 0,
-        data.scheduled_at ? new Date(data.scheduled_at).toISOString() : null,
+        nextScheduledAt ? new Date(nextScheduledAt).toISOString() : null,
         publishedAt,
         session.id,
         now,
@@ -281,13 +296,14 @@ export async function createCategoryAction(formData: FormData): Promise<void> {
   });
   if (!parsed.success) redirect("/admin/categories?error=invalid");
 
+  const db = getDb();
+  const slug = slugify(parsed.data.name, "category");
+  const exists = db
+    .prepare("SELECT 1 FROM categories WHERE slug = ? AND content_type = 'article'")
+    .get(slug);
+  if (exists) redirect("/admin/categories?error=duplicate");
+
   try {
-    const db = getDb();
-    const slug = slugify(parsed.data.name);
-    const exists = db
-      .prepare("SELECT 1 FROM categories WHERE slug = ? AND content_type = 'article'")
-      .get(slug);
-    if (exists) redirect("/admin/categories?error=duplicate");
     db.prepare(
       "INSERT INTO categories (id, name, slug, content_type, created_at) VALUES (?, ?, ?, 'article', ?)",
     ).run(randomUUID(), parsed.data.name, slug, new Date().toISOString());
@@ -307,10 +323,24 @@ export async function renameCategoryAction(formData: FormData): Promise<void> {
   const name = String(formData.get("name") ?? "").trim();
   if (!id || name.length < 2 || name.length > 100) redirect("/admin/categories?error=invalid");
 
+  const db = getDb();
+  const existing = db
+    .prepare("SELECT id FROM categories WHERE id = ? AND content_type = 'article'")
+    .get(id) as { id: string } | undefined;
+  if (!existing) redirect("/admin/categories?error=not-found");
+
+  const slug = slugify(name, "category");
+  const clash = db
+    .prepare("SELECT 1 FROM categories WHERE slug = ? AND content_type = 'article' AND id != ?")
+    .get(slug, id);
+  if (clash) redirect("/admin/categories?error=duplicate");
+
   try {
-    getDb()
-      .prepare("UPDATE categories SET name = ?, slug = ? WHERE id = ?")
-      .run(name, slugify(name), id);
+    db.prepare("UPDATE categories SET name = ?, slug = ? WHERE id = ? AND content_type = 'article'").run(
+      name,
+      slug,
+      id,
+    );
   } catch (error) {
     console.error("Failed to rename category.", error);
     redirect("/admin/categories?error=update");
@@ -326,8 +356,14 @@ export async function deleteCategoryAction(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "").trim();
   if (!id) redirect("/admin/categories?error=invalid");
 
+  const db = getDb();
+  const existing = db
+    .prepare("SELECT id FROM categories WHERE id = ? AND content_type = 'article'")
+    .get(id) as { id: string } | undefined;
+  if (!existing) redirect("/admin/categories?error=not-found");
+
   try {
-    getDb().prepare("DELETE FROM categories WHERE id = ?").run(id);
+    db.prepare("DELETE FROM categories WHERE id = ? AND content_type = 'article'").run(id);
   } catch (error) {
     console.error("Failed to delete category.", error);
     redirect("/admin/categories?error=delete");

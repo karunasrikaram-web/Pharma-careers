@@ -31,7 +31,7 @@ export function safeExternalUrl(value: string | null | undefined): string | null
   }
 }
 
-export function slugify(value: string): string {
+export function slugify(value: string, fallback = "job"): string {
   const slug = value
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -40,5 +40,5 @@ export function slugify(value: string): string {
     .replace(/^-+|-+$/g, "")
     .slice(0, 70);
 
-  return slug || "job";
+  return slug || fallback;
 }

@@ -69,6 +69,12 @@ export const MailIcon = (props: IconProps) => (
   </Svg>
 );
 
+export const FlagIcon = (props: IconProps) => (
+  <Svg {...props}>
+    <path d="M4 22V4M4 4h12l-2 4 2 4H4" />
+  </Svg>
+);
+
 export const UsersIcon = (props: IconProps) => (
   <Svg {...props}>
     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />

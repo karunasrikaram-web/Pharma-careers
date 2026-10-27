@@ -139,8 +139,10 @@ export function destroyAllSessionsForAdmin(adminId: string): void {
 
 export function sanitizeNextPath(value: unknown): string {
   if (typeof value !== "string") return "/admin";
-  if (!value.startsWith("/admin") || value.startsWith("//") || value.includes("\\")) {
+  const path = value.trim();
+  const isAdminPath = path === "/admin" || path.startsWith("/admin/");
+  if (!isAdminPath || path.includes("//") || path.includes("\\")) {
     return "/admin";
   }
-  return value;
+  return path;
 }
