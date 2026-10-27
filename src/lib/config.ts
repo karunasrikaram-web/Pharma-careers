@@ -43,8 +43,26 @@ export function getSiteUrl(): string {
     try {
       return new URL(configured).origin;
     } catch {
+      // fall through to the platform or local default
+    }
+  }
+
+  // Vercel exposes the project's production domain and the current deployment
+  // host without a scheme. Using them keeps canonical and Open Graph URLs
+  // correct even when NEXT_PUBLIC_SITE_URL has not been configured.
+  const platformHost =
+    process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() ||
+    process.env.VERCEL_URL?.trim();
+  if (platformHost) {
+    try {
+      const withScheme = platformHost.includes("://")
+        ? platformHost
+        : `https://${platformHost}`;
+      return new URL(withScheme).origin;
+    } catch {
       // fall through to the local default
     }
   }
+
   return "http://localhost:3000";
 }
