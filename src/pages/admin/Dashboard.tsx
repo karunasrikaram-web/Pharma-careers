@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAdminAuth } from "../../context/AdminAuthContext";
 
-type AuthState = "checking" | "unauthenticated" | "forbidden" | "admin";
+type AuthState = "checking" | "unauthenticated" | "forbidden" | "admin" | "error";
 
 export default function AdminDashboard() {
   const { user, loading, signOut } = useAdminAuth();
@@ -19,9 +19,16 @@ export default function AdminDashboard() {
     let cancelled = false;
     const run = async () => {
       const token = await user.getIdToken();
-      const res = await fetch("/api/admin/me", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      let res: Response;
+      try {
+        res = await fetch("/api/admin/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch {
+        // network failure / API server not running locally
+        if (!cancelled) setAuthState("error");
+        return;
+      }
       const body: { admin?: boolean; email?: string; error?: string } = await res.json().catch(() => ({}));
       if (cancelled) return;
       if (res.status === 401) {
@@ -37,7 +44,9 @@ export default function AdminDashboard() {
         setAdminEmail(body?.email ?? user.email ?? null);
         return;
       }
-      setAuthState("unauthenticated");
+      // 5xx / unexpected: show an error state — never flip to "unauthenticated",
+      // which would bounce the user to /admin/login and back in a loop.
+      setAuthState("error");
     };
     void run();
     return () => {
@@ -61,6 +70,29 @@ export default function AdminDashboard() {
 
   if (authState === "forbidden") {
     return <AdminAccessDeniedInline email={user?.email ?? null} />;
+  }
+
+  if (authState === "error") {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, background: "#0b1020", color: "#e6eaf2" }}>
+        <div style={{ maxWidth: 560, textAlign: "center", background: "#121a2e", border: "1px solid #22304d", borderRadius: 16, padding: 32 }}>
+          <h1 style={{ fontSize: 24, color: "#e6eaf2" }}>Can&apos;t reach the server</h1>
+          <p style={{ color: "#9aa7bd" }}>
+            The admin API is not responding{user?.email ? ` (signed in as ${user.email})` : ""}. If you are
+            running the site locally, make sure <code>npm run dev</code> is running (it starts both the
+            website and the API), then retry.
+          </p>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 20 }}>
+            <button type="button" onClick={() => window.location.reload()} style={{ background: "#3b82f6", color: "#fff", border: "none", borderRadius: 10, padding: "11px 14px", fontWeight: 600, cursor: "pointer" }}>
+              Retry
+            </button>
+            <button type="button" onClick={() => { void signOut(); }} style={{ background: "transparent", border: "1px solid #22304d", color: "#c6d0e0", borderRadius: 10, padding: "11px 14px", cursor: "pointer" }}>
+              Sign out
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (authState !== "admin") {
