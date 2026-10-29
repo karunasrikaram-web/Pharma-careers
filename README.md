@@ -6,6 +6,8 @@ End-to-end pharma careers website backend: **Firebase Authentication** (admin) +
 
 - Admins sign in with **Firebase email + password** (`/admin/login`).
 - Admin authorization is a **Firebase custom claim** (`admin: true`) — never a client-readable flag.
+- Admin access additionally requires the address to be on the server-side **`ADMIN_EMAILS` allowlist**
+  (currently two addresses, configured in `.env.local`); both checks must pass.
 - All admin data (jobs, articles, site content, leads, contact messages) lives in **Supabase Postgres**.
 - All admin writes go through **serverless API routes** that verify the Firebase ID token and then write
   to Supabase with the **service role key** (server-only).
@@ -37,6 +39,8 @@ FIREBASE_CLIENT_EMAIL=
 FIREBASE_PRIVATE_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 SUPABASE_URL=
+# Comma-separated admin allowlist (see "Admin email allowlist")
+ADMIN_EMAILS=
 ```
 
 The Supabase **anon** key is used for public reads only. The **service role** key bypasses RLS and must never
@@ -93,10 +97,38 @@ The script calls `auth.setCustomUserAttributes(uid, { admin: true })`.
 | `/api/admin/leads` | GET, PATCH, DELETE | List / update / delete viewing leads |
 | `/api/admin/contact-messages` | GET, DELETE | List / delete contact messages |
 
+## Admin email allowlist
+
+Admin authorization is **two independent server-side checks, both mandatory**:
+
+1. Firebase custom claim `admin === true` (verified with `verifyIdToken` / `verifySessionCookie`,
+   `checkRevoked = true`), and
+2. the verified token's email appearing in the `ADMIN_EMAILS` environment variable.
+
+`ADMIN_EMAILS` is a comma-separated, server-only variable (never `VITE_`-prefixed):
+
+```
+ADMIN_EMAILS=first.admin@gmail.com,second.admin@gmail.com
+```
+
+- Matching is case-insensitive and whitespace-tolerant.
+- The two live addresses are set in `.env.local` (gitignored) — **not** in `.env.example` or this README,
+  and they must be set again as a Vercel environment variable for production.
+- Behaviour when the variable is empty:
+  - **production → fail closed**: every admin request is rejected with 403 until `ADMIN_EMAILS` is set;
+  - **development → claim-only**, so local work is not blocked by a missing variable.
+- A valid admin whose address is not on the list gets **403** on every `/api/admin/*` route (and sees the
+  access-denied page in the dashboard).
+- `scripts/set-admin.js` warns if it grants the claim to an address that is not on the allowlist, so the
+  two checks can never drift apart unnoticed.
+- Covered by `scripts/smoke-allowlist.ts` (12 assertions, see `VERIFICATION.md`).
+
 ## Security notes
 
 - Firebase email/password sign-up cannot be fully disabled on the free tier; anyone may create a Firebase
   account. This is safe **only** because every admin endpoint requires the `admin: true` custom claim.
+- Even with the claim, an address outside `ADMIN_EMAILS` is rejected with 403 — a leaked or mistakenly
+  granted claim is not enough on its own.
 - Admin status is a **server-verified Firebase custom claim** — never a client-readable field or localStorage flag.
 - The Firebase service account / Supabase service role key exist only on the server and must never be
   shipped to the browser or prefixed with `VITE_` / `NEXT_PUBLIC_`.
@@ -122,6 +154,8 @@ The script calls `auth.setCustomUserAttributes(uid, { admin: true })`.
 | `scripts/smoke-admin-me.ts` → unauthenticated request to `GET /api/admin/me` | ✅ PASS — returned `401 {"error":"Unauthorized"}` |
 | `scripts/smoke-admin-me.ts` → request with invalid bearer token | ✅ PASS — returned `401 {"error":"Unauthorized"}` |
 | `scripts/smoke-admin-me.ts` → unsupported method | ✅ PASS — returned `405` |
+| `scripts/smoke-allowlist.ts` → 12 assertions on the `ADMIN_EMAILS` allowlist (both configured addresses allowed, outsider denied → 403, case-insensitive match, 401 never upgraded, fail-closed in production, claim-only in development) | ✅ PASS — 12/12 |
+| Client bundle re-scanned after the allowlist change for admin emails / `ADMIN_EMAILS` / service keys | ✅ PASS — no matches |
 
 ### Live checks still requiring real credentials (not run here)
 

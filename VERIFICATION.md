@@ -29,6 +29,9 @@ available, so anything requiring real credentials is marked **NOT TESTED** rathe
 | 8 | Service-role / service-account vars are **not** `VITE_`-prefixed | grep `.env.example` → `SUPABASE_SERVICE_ROLE_KEY=`, `FIREBASE_SERVICE_ACCOUNT_JSON=` (no `VITE_` prefix) | ✅ **PASS** |
 | 9 | No secret files committed / present | `Get-ChildItem .env*` → only `.env.example`; `.gitignore` excludes `.env` and `.env.*` | ✅ **PASS** |
 | 10 | Client source contains no service keys, no `localStorage` admin flag, no `is_admin` | grep `src/**` for `SERVICE_ROLE`, `SERVICE_ACCOUNT`, `PRIVATE_KEY`, `localStorage`, `is_admin`, `isAdmin` | ✅ **PASS** — 0 matches |
+| 11 | Admin email allowlist logic | `npx tsx scripts/smoke-allowlist.ts` (12 assertions) | ✅ **PASS** — 12/12 |
+| 12 | Admin emails / `ADMIN_EMAILS` / service keys absent from the rebuilt client bundle | grep `dist/**` for `karunasrikaram`, `kothapallyhrishikesh3`, `ADMIN_EMAILS`, `SERVICE_ROLE`, `SERVICE_ACCOUNT`, `-----BEGIN`, `AIzaSy`, `eyJhbGciOi` | ✅ **PASS** — 0 matches |
+| 13 | `.env.local` (holds the two real addresses) is not tracked by git | `git ls-files` → only `.env.example` matches `.env*`; `.gitignore` covers `.env`, `.env.*`, `*.local`, `!.env.example` | ✅ **PASS** |
 
 Reproduce locally:
 
@@ -36,7 +39,25 @@ Reproduce locally:
 npx tsc --noEmit
 npm run build
 npx tsx scripts/smoke-admin-me.ts
+npx tsx scripts/smoke-allowlist.ts
 ```
+
+### Allowlist assertions executed (check 11)
+
+| # | Assertion | Result |
+|---|---|---|
+| A1 | `ADMIN_EMAILS` parses to exactly 2 entries | ✅ PASS |
+| A2 | `karunasrikaram@gmail.com` allowed | ✅ PASS |
+| A3 | `kothapallyhrishikesh3@gmail.com` allowed | ✅ PASS |
+| A4 | Matching is case-insensitive (`KARUNASRIKARAM@GMAIL.COM`) | ✅ PASS |
+| A5 | Address outside the allowlist denied | ✅ PASS |
+| A6 | Valid admin outside allowlist → **403** `{reason:"forbidden"}` | ✅ PASS |
+| A7 | Allowlisted admin passes through unchanged | ✅ PASS |
+| A8 | Pre-existing auth failures are not overwritten | ✅ PASS |
+| A9 | 401 stays 401 — the allowlist never changes an auth failure into a different code | ✅ PASS |
+| A10 | Production + empty `ADMIN_EMAILS` → deny (**fail closed**) | ✅ PASS |
+| A11 | That denial is a 403, not a 401 | ✅ PASS |
+| A12 | Development + empty `ADMIN_EMAILS` → claim-only | ✅ PASS |
 
 ---
 
@@ -69,6 +90,10 @@ npx tsx scripts/smoke-admin-me.ts
 | Requires `decodedToken.admin === true`, else 401/403 | ✅ implemented — missing/invalid token → 401, valid token without claim → 403 |
 | Body validated/sanitized server-side | ✅ implemented — Zod schemas in `api/_lib/validate.ts` on every write path |
 | Writes to Supabase use the server-only service role key | ✅ implemented (`api/_lib/db.ts`, never referenced from `src/`) |
+| **Email allowlist (added 2026-10-29):** two addresses required server-side, in addition to the claim | ✅ implemented (`ADMIN_EMAILS` in `.env.local` = `karunasrikaram@gmail.com`, `kothapallyhrishikesh3@gmail.com`; enforced by `enforceAdminAllowlist` inside `requireAdmin`, so it covers bearer **and** cookie paths and every `/api/admin/*` route) |
+| Allowlist fails closed in production when unset, claim-only in dev | ✅ implemented + executed (`smoke-allowlist.ts` A10–A12) |
+| Granting the claim cannot silently bypass the allowlist | ✅ implemented — `scripts/set-admin.js` warns when the target address is not on `ADMIN_EMAILS` and reports `onAllowlist` in its output |
+| Allowlist never leaks to the browser | ✅ PASS — `ADMIN_EMAILS` is not `VITE_`-prefixed, not referenced from `src/`, absent from `dist/` (check 12) |
 
 ### Admin endpoints (all ops for jobs, articles, site content, leads)
 

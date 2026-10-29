@@ -31,14 +31,54 @@ function getBearerToken(req: VercelRequest): string | null {
 }
 
 /**
+ * Admin email allowlist (`ADMIN_EMAILS`, comma-separated, server-only env var).
+ *
+ * This is checked IN ADDITION TO the Firebase `admin: true` custom claim —
+ * both must pass. Matching is case-insensitive.
+ *
+ * Fail-closed behaviour:
+ *  - allowlist configured  → only those exact addresses are accepted;
+ *  - allowlist empty + production → nobody is accepted (misconfiguration is
+ *    denied rather than silently wide open);
+ *  - allowlist empty + development → claim-only, so local dev works out of the box.
+ */
+export function getAllowedAdminEmails(): string[] {
+  const raw = process.env.ADMIN_EMAILS ?? "";
+  return raw
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+export function isEmailAllowed(email: string): boolean {
+  const allowed = getAllowedAdminEmails();
+  if (allowed.length > 0) {
+    return allowed.includes((email ?? "").trim().toLowerCase());
+  }
+  return process.env.NODE_ENV !== "production";
+}
+
+/**
+ * Applies the allowlist to an already-verified admin result.
+ * A valid admin whose address is not on the list is rejected with 403.
+ */
+export function enforceAdminAllowlist(result: AdminAuthResult): AdminAuthResult {
+  if (!result.ok) return result;
+  if (isEmailAllowed(result.email)) return result;
+  return { ok: false, status: 403, reason: "forbidden" };
+}
+
+/**
  * Verifies the caller as an admin:
  *  1. Firebase ID token from `Authorization: Bearer <token>` OR
  *     from the secure httpOnly session cookie minted via createSessionCookie.
  *  2. Verifies with firebase-admin (verifyIdToken / verifySessionCookie w/ checkRevoked).
  *  3. Requires the custom claim `admin === true`.
- *  4. Applies a per-IP rate limit.
+ *  4. Requires the address to be on the `ADMIN_EMAILS` allowlist.
+ *  5. Applies a per-IP rate limit.
  *
- * Returns 401 (missing/invalid) or 403 (valid token without admin claim) as appropriate.
+ * Returns 401 (missing/invalid) or 403 (valid token without admin claim, or
+ * address not allowlisted) as appropriate.
  */
 export async function requireAdmin(req: VercelRequest): Promise<AdminAuthResult> {
   const bearer = getBearerToken(req);
@@ -54,9 +94,9 @@ export async function requireAdmin(req: VercelRequest): Promise<AdminAuthResult>
   }
 
   if (bearer) {
-    return verifyAdminToken(bearer);
+    return enforceAdminAllowlist(await verifyAdminToken(bearer));
   }
-  return verifyAdminSessionCookie(token);
+  return enforceAdminAllowlist(await verifyAdminSessionCookie(token));
 }
 
 export function adminAuthFailureResponse(authResult: AdminAuthResult) {
