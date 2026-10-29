@@ -54,6 +54,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .select()
       .single();
     if (error) return res.status(500).json({ error: error.message });
+
+    // Creating a job straight as "published" must stamp the publish date too,
+    // otherwise the public site shows no "Published" date for it.
+    if (payload.status === "published") {
+      const { data: updated, error: publishError } = await db
+        .from("jobs")
+        .update({ is_published: true, published_at: new Date().toISOString() })
+        .eq("id", data.id)
+        .select()
+        .single();
+      if (!publishError && updated) {
+        return res.status(201).json({ job: updated });
+      }
+    }
     return res.status(201).json({ job: data });
   }
 

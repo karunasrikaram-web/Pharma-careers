@@ -1,156 +1,167 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useAdminAuth } from "../../context/AdminAuthContext";
+import { adminFetch, formatDate, STATUS_COLORS } from "../../lib/adminApi";
 
-type AuthState = "checking" | "unauthenticated" | "forbidden" | "admin" | "error";
+interface Job {
+  id: string;
+  title: string;
+  company: string;
+  status: string;
+  published_at: string | null;
+  created_at: string;
+}
+
+interface Application {
+  id: string;
+  job_id: string | null;
+  job_title: string;
+  company: string;
+  applicant_name: string;
+  surname: string;
+  email: string;
+  status: string;
+  created_at: string;
+}
+
+function StatCard({ label, value, hint }: { label: string; value: number | string; hint?: string }) {
+  return (
+    <div style={{ background: "#121a2e", border: "1px solid #22304d", borderRadius: 14, padding: "18px 20px", minWidth: 150, flex: 1 }}>
+      <div style={{ fontSize: 26, fontWeight: 700, color: "#e6eaf2" }}>{value}</div>
+      <div style={{ fontSize: 13.5, color: "#9aa7bd", marginTop: 4 }}>{label}</div>
+      {hint && <div style={{ fontSize: 12, color: "#5d6b85", marginTop: 6 }}>{hint}</div>}
+    </div>
+  );
+}
 
 export default function AdminDashboard() {
-  const { user, loading, signOut } = useAdminAuth();
-  const navigate = useNavigate();
-  const [authState, setAuthState] = useState<AuthState>("checking");
-  const [adminEmail, setAdminEmail] = useState<string | null>(null);
+  const { user } = useAdminAuth();
+  const [jobs, setJobs] = useState<Job[] | null>(null);
+  const [applications, setApplications] = useState<Application[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (loading) return;
-    if (!user) {
-      setAuthState("unauthenticated");
-      return;
-    }
+    if (!user) return;
     let cancelled = false;
     const run = async () => {
-      const token = await user.getIdToken();
-      let res: Response;
       try {
-        res = await fetch("/api/admin/me", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const [jobsRes, appsRes] = await Promise.all([
+          adminFetch(user, "/api/admin/jobs"),
+          adminFetch(user, "/api/admin/applications"),
+        ]);
+        const jobsBody = (await jobsRes.json().catch(() => ({}))) as { jobs?: Job[]; error?: string };
+        const appsBody = (await appsRes.json().catch(() => ({}))) as {
+          roles?: Array<{ title: string; companies: Array<{ company: string; applications: Application[] }> }>;
+          total?: number;
+          error?: string;
+        };
+        if (cancelled) return;
+        if (!jobsRes.ok || !appsRes.ok) {
+          setError(
+            jobsBody.error ??
+              appsBody.error ??
+              "Could not load dashboard data. If the site is running locally, check that npm run dev is running."
+          );
+          return;
+        }
+        setJobs(jobsBody.jobs ?? []);
+        const flat = (appsBody.roles ?? []).flatMap((r) => r.companies.flatMap((c) => c.applications));
+        setApplications(flat);
       } catch {
-        // network failure / API server not running locally
-        if (!cancelled) setAuthState("error");
-        return;
+        if (!cancelled) setError("Could not reach the server.");
       }
-      const body: { admin?: boolean; email?: string; error?: string } = await res.json().catch(() => ({}));
-      if (cancelled) return;
-      if (res.status === 401) {
-        setAuthState("unauthenticated");
-        return;
-      }
-      if (res.status === 403) {
-        setAuthState("forbidden");
-        return;
-      }
-      if (res.ok && body?.admin) {
-        setAuthState("admin");
-        setAdminEmail(body?.email ?? user.email ?? null);
-        return;
-      }
-      // 5xx / unexpected: show an error state — never flip to "unauthenticated",
-      // which would bounce the user to /admin/login and back in a loop.
-      setAuthState("error");
     };
     void run();
     return () => {
       cancelled = true;
     };
-  }, [user, loading, signOut]);
+  }, [user]);
 
-  useEffect(() => {
-    if (authState === "unauthenticated") {
-      navigate("/admin/login", { replace: true });
-    }
-  }, [authState, navigate]);
+  const published = jobs?.filter((j) => j.status === "published") ?? [];
+  const drafts = jobs?.filter((j) => j.status === "draft") ?? [];
+  const newApps = applications?.filter((a) => a.status === "new") ?? [];
+  const recentApps = (applications ?? []).slice(0, 6);
 
-  if (loading) {
-    return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>Loading…</div>;
-  }
+  return (
+    <div>
+      <h1 style={{ fontSize: 26, color: "#e6eaf2", marginBottom: 4 }}>Admin dashboard</h1>
+      <p style={{ color: "#9aa7bd", marginTop: 0, marginBottom: 20 }}>
+        Control the public website: post vacancies, publish or pull them instantly, and review
+        candidate applications grouped under each role.
+      </p>
 
-  if (authState === "unauthenticated") {
-    return <div style={{ minHeight: "100vh" }} />;
-  }
-
-  if (authState === "forbidden") {
-    return <AdminAccessDeniedInline email={user?.email ?? null} />;
-  }
-
-  if (authState === "error") {
-    return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, background: "#0b1020", color: "#e6eaf2" }}>
-        <div style={{ maxWidth: 560, textAlign: "center", background: "#121a2e", border: "1px solid #22304d", borderRadius: 16, padding: 32 }}>
-          <h1 style={{ fontSize: 24, color: "#e6eaf2" }}>Can&apos;t reach the server</h1>
-          <p style={{ color: "#9aa7bd" }}>
-            The admin API is not responding{user?.email ? ` (signed in as ${user.email})` : ""}. If you are
-            running the site locally, make sure <code>npm run dev</code> is running (it starts both the
-            website and the API), then retry.
-          </p>
-          <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 20 }}>
-            <button type="button" onClick={() => window.location.reload()} style={{ background: "#3b82f6", color: "#fff", border: "none", borderRadius: 10, padding: "11px 14px", fontWeight: 600, cursor: "pointer" }}>
-              Retry
-            </button>
-            <button type="button" onClick={() => { void signOut(); }} style={{ background: "transparent", border: "1px solid #22304d", color: "#c6d0e0", borderRadius: 10, padding: "11px 14px", cursor: "pointer" }}>
-              Sign out
-            </button>
-          </div>
+      {error && (
+        <div style={{ background: "#3f1a1a", border: "1px solid #5d2626", color: "#ff9b9b", borderRadius: 10, padding: "12px 16px", marginBottom: 16 }}>
+          {error}
         </div>
+      )}
+
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 24 }}>
+        <StatCard label="Published jobs (live on site)" value={jobs ? published.length : "…"} />
+        <StatCard label="Draft jobs (hidden)" value={jobs ? drafts.length : "…"} />
+        <StatCard label="Total applications" value={applications ? applications.length : "…"} />
+        <StatCard label="New applications" value={applications ? newApps.length : "…"} />
       </div>
-    );
-  }
 
-  if (authState !== "admin") {
-    return <div style={{ minHeight: "100vh" }} />;
-  }
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 24 }}>
+        <Link to="/admin/jobs" className="btn btn-primary" style={{ textDecoration: "none" }}>
+          + Post a new job
+        </Link>
+        <Link
+          to="/admin/applications"
+          style={{ display: "inline-flex", alignItems: "center", padding: "11px 16px", borderRadius: 10, border: "1px solid #22304d", color: "#c6d0e0", textDecoration: "none", fontWeight: 600, fontSize: 15 }}
+        >
+          Review applications
+        </Link>
+        <a
+          href="/"
+          target="_blank"
+          rel="noreferrer"
+          style={{ display: "inline-flex", alignItems: "center", padding: "11px 16px", borderRadius: 10, border: "1px solid #22304d", color: "#c6d0e0", textDecoration: "none", fontWeight: 600, fontSize: 15 }}
+        >
+          View public site ↗
+        </a>
+      </div>
 
-  const handleSignOut = async () => {
-    try {
-      const token = await user?.getIdToken();
-      if (token) {
-        await fetch("/api/admin/logout", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      }
-    } catch {
-      // best-effort server-side sign-out; client sign-out always runs below
-    }
-    await signOut();
-    navigate("/admin/login", { replace: true });
-  };
-
-  return (
-    <div style={{ minHeight: "100vh", background: "#0b1020", color: "#e6eaf2" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 24px", borderBottom: "1px solid #22304d" }}>
-        <strong>Pharma Careers · Admin</strong>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ color: "#9aa7bd", fontSize: 14 }}>{adminEmail ?? user?.email}</span>
-          <button type="button" onClick={handleSignOut} style={{ background: "transparent", border: "1px solid #22304d", color: "#c6d0e0", borderRadius: 10, padding: "8px 12px", cursor: "pointer" }}>
-            Sign out
-          </button>
+      <div style={{ background: "#121a2e", border: "1px solid #22304d", borderRadius: 14, overflow: "hidden" }}>
+        <div style={{ padding: "14px 20px", borderBottom: "1px solid #22304d", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <strong style={{ fontSize: 15 }}>Recent applications</strong>
+          <Link to="/admin/applications" style={{ color: "#7cc4ff", fontSize: 13.5, textDecoration: "none" }}>
+            View all →
+          </Link>
         </div>
-      </header>
-      <main style={{ padding: 24 }}>
-        <h1 style={{ fontSize: 28, color: "#e6eaf2" }}>Admin dashboard</h1>
-        <p style={{ color: "#9aa7bd" }}>
-          Firebase admin verified. Server-side authorization via the <code>admin: true</code> custom claim.
-        </p>
-      </main>
-    </div>
-  );
-}
-
-function AdminAccessDeniedInline({ email }: { email: string | null }) {
-  const navigate = useNavigate();
-  return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, background: "#0b1020" }}>
-      <div style={{ maxWidth: 560, textAlign: "center", background: "#121a2e", border: "1px solid #22304d", borderRadius: 16, padding: 32 }}>
-        <h1 style={{ fontSize: 28, color: "#e6eaf2" }}>Access denied</h1>
-        <p style={{ color: "#9aa7bd" }}>
-          Your account{email ? ` (${email})` : ""} is signed in, but it does not have the Firebase admin claim
-          required to view this area.
-        </p>
-        <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 20 }}>
-          <button type="button" onClick={() => navigate("/admin/login", { replace: true })} style={{ background: "#3b82f6", color: "#fff", border: "none", borderRadius: 10, padding: "11px 14px", fontWeight: 600, cursor: "pointer" }}>
-            Back to sign in
-          </button>
-        </div>
+        {applications === null ? (
+          <div style={{ padding: 20, color: "#9aa7bd" }}>Loading…</div>
+        ) : recentApps.length === 0 ? (
+          <div style={{ padding: 20, color: "#9aa7bd" }}>
+            No applications yet. When candidates apply on the public site, they will appear here.
+          </div>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+            <tbody>
+              {recentApps.map((app) => {
+                const c = STATUS_COLORS[app.status] ?? STATUS_COLORS.new;
+                return (
+                  <tr key={app.id} style={{ borderBottom: "1px solid #1a2440" }}>
+                    <td style={{ padding: "11px 20px", color: "#e6eaf2", fontWeight: 500 }}>
+                      {[app.applicant_name, app.surname].filter(Boolean).join(" ")}
+                    </td>
+                    <td style={{ padding: "11px 12px", color: "#9aa7bd" }}>
+                      {app.job_title}
+                      {app.company ? ` · ${app.company}` : ""}
+                    </td>
+                    <td style={{ padding: "11px 12px", color: "#5d6b85" }}>{formatDate(app.created_at)}</td>
+                    <td style={{ padding: "11px 20px", textAlign: "right" }}>
+                      <span style={{ background: c.bg, color: c.fg, borderRadius: 999, padding: "3px 10px", fontSize: 12, textTransform: "capitalize" }}>
+                        {app.status}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

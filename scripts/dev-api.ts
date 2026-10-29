@@ -47,7 +47,9 @@ function readBody(req: IncomingMessage): Promise<Record<string, unknown>> {
     let raw = "";
     req.on("data", (chunk) => {
       raw += chunk;
-      if (raw.length > 1_000_000) req.destroy();
+      // 5 MB cap: application submissions carry a base64 resume (~3 MB file
+      // → ~4 MB base64). Mirrors the ~4.5 MB Vercel body limit.
+      if (raw.length > 5_000_000) req.destroy();
     });
     req.on("end", () => {
       if (!raw) return resolveBody({});

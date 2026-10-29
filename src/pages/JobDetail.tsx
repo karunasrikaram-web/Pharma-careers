@@ -113,11 +113,23 @@ export default function JobDetail() {
                   </div>
                 )}
 
-                <div style={{ marginTop: 32 }}>
-                  <Link className="btn btn-primary" to="/contact">
-                    Enquire about this role
-                  </Link>
-                </div>
+                {job.isSample ? (
+                  <div style={{ marginTop: 32 }}>
+                    <Link className="btn btn-primary" to="/contact">
+                      Enquire about this role
+                    </Link>
+                  </div>
+                ) : (
+                  <div style={{ marginTop: 32 }}>
+                    <Link className="btn btn-primary" to={`/apply?job=${job.id}`}>
+                      Apply for this role
+                    </Link>
+                    <p className="hint" style={{ marginTop: 12 }}>
+                      No login needed — one short form with your details and resume. You can
+                      apply only once per role.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>

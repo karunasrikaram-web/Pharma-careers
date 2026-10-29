@@ -450,10 +450,59 @@ img {
 }
 
 .form input:focus,
-.form textarea:focus {
+.form textarea:focus,
+.form select:focus {
   outline: 2px solid var(--green);
   outline-offset: -1px;
   background: var(--surface);
+}
+
+.form select {
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  padding: 11px 13px;
+  font: inherit;
+  font-size: 15px;
+  background: var(--bg);
+  color: var(--ink);
+  width: 100%;
+}
+
+.form .field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px;
+}
+
+.hint {
+  font-size: 13.5px;
+  color: var(--muted, #5c6b62);
+  margin: 0;
+  line-height: 1.55;
+}
+
+.hint-warning {
+  background: #fff7e6;
+  border: 1px solid #f0dca8;
+  color: #7a5b12;
+  border-radius: 9px;
+  padding: 11px 14px;
+  font-size: 14px;
+  margin: 0;
+  line-height: 1.55;
+}
+
+.badge-applied {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--green-tint);
+  border: 1px solid #cfe0d4;
+  color: var(--green-deep);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .form-error {

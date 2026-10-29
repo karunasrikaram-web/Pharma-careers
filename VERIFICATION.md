@@ -1,7 +1,7 @@
 # Pharma Careers — Auth Override Verification Report
 
 **Scope:** Firebase Authentication for admins, Supabase for data.
-**Date:** 2026-10-29
+**Date:** 2026-10-29 — original report; **2026-10-30** — applications + admin-console addendum (§5).
 **Environment:** Live Firebase project `pharma-da29d` (3 real users, Email/Password provider, admin
 claims granted) + live Supabase project `rsyyqtynvqbaeoslxwwc` (migration applied). Every check below
 was executed against these real services; nothing is inferred from code review alone except where a
@@ -22,8 +22,8 @@ row explicitly says "implemented".
 | # | Check | Command / method | Result |
 |---|---|---|---|
 | 1 | Client + API + config typecheck | `npx tsc --noEmit` | ✅ **PASS** (exit 0, no errors) |
-| 2 | Production build | `npm run build` (Vite 5.4.21) | ✅ **PASS** (exit 0, 52 modules, `dist/assets/index-*.js` 338.70 kB) |
-| 3 | No service account / service role key / private key / Firebase web key / JWT in client bundle | `grep` over `dist/**` for `SUPABASE_SERVICE_ROLE_KEY`, `FIREBASE_SERVICE_ACCOUNT`, `service_role`, `serviceRole`, `private_key`, `-----BEGIN`, `AIzaSy`, `eyJhbGciOi`, `sk-…` | ✅ **PASS** — 0 matches |
+| 2 | Production build | `npm run build` (Vite 5.4.21) | ✅ **PASS** (exit 0; re-run 2026-10-30 after the applications feature: 110 modules, `dist/assets/index-*.js` 627.24 kB / 164.95 kB gzip — the original run was 52 modules / 338.70 kB) |
+| 3 | No **secret** material in the client bundle (service account / service role key / private key / admin emails / admin passwords) | `grep` over `dist/**` for `SUPABASE_SERVICE_ROLE_KEY`, `FIREBASE_SERVICE_ACCOUNT`, `service_role`, `serviceRole`, `private_key`, `-----BEGIN`, `karunasrikaram`, `kothapallyhrishikesh3`, `ADMIN_EMAILS`, the two real admin passwords, `TEST_ADMIN` | ✅ **PASS** — 0 matches. **Correction (2026-10-30):** the earlier version of this row also listed `AIzaSy` and `eyJhbGciOi` as "0 matches" — that was **wrong**. The Firebase **web API key** (`AIza…`) and the Supabase **anon key** (`eyJhbGciOi…`) *are* in the bundle. Both are public identifiers by design (they identify the project, they authorise nothing); safety comes from RLS on the data and from the server-side admin claim + allowlist. |
 | 4 | Unauthenticated request to admin endpoint | `scripts/smoke-admin-me.ts` → `GET /api/admin/me` with no Authorization header, no cookie | ✅ **PASS** — `401 {"error":"Unauthorized"}` |
 | 5 | Garbage bearer token rejected | same script → `Authorization: Bearer not-a-real-id-token` | ✅ **PASS** — `401 {"error":"Unauthorized"}` |
 | 6 | Wrong HTTP method rejected | same script → `POST /api/admin/me` | ✅ **PASS** — `405 {"error":"Method not allowed"}` |
@@ -32,7 +32,7 @@ row explicitly says "implemented".
 | 9 | No secret files committed / present | `Get-ChildItem .env*` → only `.env.example`; `.gitignore` excludes `.env` and `.env.*` | ✅ **PASS** |
 | 10 | Client source contains no service keys, no `localStorage` admin flag, no `is_admin` | grep `src/**` for `SERVICE_ROLE`, `SERVICE_ACCOUNT`, `PRIVATE_KEY`, `localStorage`, `is_admin`, `isAdmin` | ✅ **PASS** — 0 matches |
 | 11 | Admin email allowlist logic | `npx tsx scripts/smoke-allowlist.ts` (12 assertions) | ✅ **PASS** — 12/12 |
-| 12 | Admin emails / `ADMIN_EMAILS` / service keys absent from the rebuilt client bundle | grep `dist/**` for `karunasrikaram`, `kothapallyhrishikesh3`, `ADMIN_EMAILS`, `SERVICE_ROLE`, `SERVICE_ACCOUNT`, `-----BEGIN`, `AIzaSy`, `eyJhbGciOi` | ✅ **PASS** — 0 matches |
+| 12 | Admin emails / `ADMIN_EMAILS` / service keys / admin passwords absent from the rebuilt client bundle | grep `dist/**` for `karunasrikaram`, `kothapallyhrishikesh3`, `ADMIN_EMAILS`, `SERVICE_ROLE`, `SERVICE_ACCOUNT`, `-----BEGIN`, `eaqbbQzvsdVJYnPRC`, `J94ix6Wgg36MTmYLD`, `TEST_ADMIN` | ✅ **PASS** — 0 matches (same `AIzaSy` / `eyJhbGciOi` correction as row 3 applies) |
 | 13 | `.env.local` (holds the two real addresses) is not tracked by git | `git ls-files` → only `.env.example` matches `.env*`; `.gitignore` covers `.env`, `.env.*`, `*.local`, `!.env.example` | ✅ **PASS** |
 | 14 | Live Supabase project reachable with the supplied keys | `GET /rest/v1/jobs` with anon key → PostgREST answered; same request **without** a key → `401 No API key found in request` | ✅ **PASS** |
 | 15 | Migration applied to the live project | service-role `GET` on all 5 tables → `[]` / `200` (previously `404 PGRST205`) | ✅ **PASS** |
@@ -41,6 +41,10 @@ row explicitly says "implemented".
 | 18 | Firebase readiness | `npm run check:firebase` — real users, claims, web config, service account, allowlist | ✅ **PASS** — `OVERALL: READY` (3 users; both allowlisted addresses have `admin:true`; stray user has no claim) |
 | 19 | **Live admin endpoint suite** | `npx tsx scripts/smoke-admin-live.ts` — real Firebase Auth REST sign-ins driving the real `api/` handlers + real Supabase writes | ✅ **PASS** — **50/50**, final state CLEAN (5 tables 0 rows, probe user deleted, admin claims intact) |
 | 20 | **Login UI in a real browser** | `npx tsx scripts/test-login-ui.ts` — headless Chromium against `npm run dev`, real Firebase client SDK | ✅ **PASS** — 4/4 |
+| 21 | **Applications + duplicate-role suite** | `npx tsx scripts/smoke-applications.ts` — public apply endpoint, duplicate rule, `/api/check-application`, anon RLS, admin role→company grouping, resume signed URL, DELETE, re-apply | ✅ **PASS** — **43/43**, DB + storage bucket left at 0 |
+| 22 | **Full console + apply flow in a real browser** | `npx tsx scripts/check-console-ui.ts` — sign in → publish a job through the UI → public site → `/apply` (no login) → submit a real PDF → console shows it per role and per company → "＋ already applied" blocks a second attempt | ✅ **PASS** — **21/21**, test data cleaned up |
+| 23 | Applications migration applied (table + private bucket) | anon `GET /rest/v1/applications` → `200 []` (was `404`); service-role `GET /storage/v1/bucket/resumes` → `public:false`, `file_size_limit:3145728`, PDF/DOC/DOCX | ✅ **PASS** |
+| 24 | Earlier suites still green after the new feature | `npx tsx scripts/smoke-rls.ts` re-run → 28/28, all 5 tables back to 0 rows | ✅ **PASS** |
 
 Reproduce locally:
 
@@ -52,8 +56,10 @@ npx tsx scripts/smoke-allowlist.ts
 npx tsx scripts/smoke-rls.ts          # needs SUPABASE keys in .env.local
 npm run check:firebase                # needs Firebase creds in .env.local
 npx tsx scripts/smoke-admin-live.ts   # needs both + test passwords in .env.local
+npx tsx scripts/smoke-applications.ts # applications migration must be applied first
 npm run dev                           # then, in another terminal:
 npx tsx scripts/test-login-ui.ts
+npx tsx scripts/check-console-ui.ts   # full console + apply flow in a browser
 ```
 
 ### Live admin endpoint suite executed (check 19) — 50/50
@@ -251,3 +257,75 @@ temporary probe Firebase user is deleted, and admin claims are restored if a tes
 
 Note on check 5: the browser test triggers a real Firebase password-reset email to the first address
 in `ADMIN_EMAILS` (one email per run) — that is inherent to verifying the flow honestly.
+
+---
+
+## 5. Applications + admin console addendum (2026-10-30)
+
+### What was added
+
+- **Public apply flow with no login:** `/apply` collects first name, surname, email, phone, location,
+  role (dropdown), optional cover note and a resume file. Header nav gained an **Apply** entry; every
+  real job page links to `/apply?job=<id>` with the role pre-selected. Sample vacancies keep the
+  "Enquire about this role" link (they are not real openings and cannot be applied to).
+- **One application per role:** `/api/check-application` returns the role titles an email has already
+  applied for — at *any* company. Those dropdown options are prefixed `＋` and labelled *already
+  applied*; submitting one is blocked in the UI and returns `409` from the API. A unique index on
+  `(lower(email), lower(job_title))` is the database-level backstop.
+- **Admin console:** `AdminShell` with Dashboard / Jobs / Applications. Applications are grouped
+  **per role → per company**, showing full name, email, phone, location, applied date, resume
+  (signed URL from the private bucket), expandable cover note, status pipeline and delete.
+- **Schema** (`supabase/migrations/20260102000000_applications.sql`): `applications` table with
+  `job_title` + `company` snapshots (a deleted or renamed vacancy never loses context), status CHECK,
+  RLS enabled with **zero public policies**, plus the private `resumes` bucket.
+
+### Check 21 — applications suite, 43/43
+
+| Group | Checks | Result |
+|---|---|---|
+| validation | empty body → 400; invalid email → 400; missing surname → 400; missing location → 400 | ✅ PASS ×4 |
+| file safety | fake PDF (bad magic bytes) against a **live** job → 400 | ✅ PASS |
+| availability | unknown job → 404; draft job → 404; `GET` → 405 | ✅ PASS ×3 |
+| rate limit | 6th request/min from one IP → 429 | ✅ PASS |
+| job creation | `POST` with `status:"published"` → 201 **and** `published_at` stamped; a second job with the **same role title at another company** created | ✅ PASS ×2 |
+| happy path | full record stored: surname, phone, location, company snapshot, resume filename, status `new` | ✅ PASS ×6 |
+| **duplicate rule** | same email + same job → 409; message names the role; **same role at another company → 409**; message names the *other* company | ✅ PASS ×4 |
+| badge API | `/api/check-application` → 200 and returns the applied role title; unknown email → empty list | ✅ PASS ×2 |
+| RLS | anon `SELECT` → 0 rows; anon `INSERT` → denied | ✅ PASS ×2 |
+| admin grouping | role section exists; candidate under the **right company**; `?jobId=` narrows to that vacancy | ✅ PASS ×3 |
+| status | `PATCH` → 200 and persisted as `shortlisted`; invalid status → 400 | ✅ PASS ×2 |
+| resume | `?resume=` → signed URL that downloads a real `%PDF-` file; filename preserved; no token → 401 | ✅ PASS ×3 |
+| delete | row gone; **re-signing the object path → `Object not found`** (file truly removed); second DELETE → 404; the role can be applied for again → 201 | ✅ PASS ×4 |
+
+Final state: `jobs = 0`, `applications = 0`, `resumes` bucket empty.
+
+### Check 22 — console + apply flow in a real browser, 21/21
+
+Sign in → dashboard heading and sidebar → create + publish a job through the form → the job appears on
+public `/jobs` → its page shows *Apply for this role* and **no login prompt** → `/apply?job=` opens
+with the role pre-selected → empty-form validation fires → a real PDF is submitted → success → the
+console shows the candidate under its **role** and its **company** with full name, phone, location and
+a resume button → returning to `/apply` with the same email marks the role `＋ … (already applied)` →
+submitting it again is blocked → **0 JavaScript errors**. Test job and application deleted via the API
+afterwards.
+
+### Two issues found and fixed during this run
+
+1. **CDN could serve a deleted resume for up to an hour.** Supabase serves signed URLs with
+   `expires: +1h`, and Cloudflare caches them (`cf-cache-status: HIT` observed after deletion), so an
+   already-minted URL could keep answering after the application was deleted. Uploading with
+   `cacheControl: "0"` / `"no-store"` was tested and does **not** help (Supabase stores the value
+   literally as `max-age=…` and the response still carries `expires: +1h`). The object *is* deleted —
+   proven by re-signing the path, which fails with `Object not found` — so the suite now asserts that
+   (authoritative) instead of the CDN's behaviour, and records the cached-response window as an
+   `info` line. Residual exposure is bounded: the URL is unguessable, admin-minted, read-only and
+   expires within the hour regardless.
+2. **Test-script defects (not product bugs):** the validation cases still contained the fields they
+   meant to omit (so they hit the job-lookup 404 instead of Zod), the fake-PDF case ran before any
+   live job existed, and admin calls were made without a bearer token. All three fixed in
+   `scripts/smoke-applications.ts`; the suite is what caught them.
+
+### Regression
+
+`scripts/smoke-rls.ts` re-run after the feature: **28/28**, all five original tables back to 0 rows.
+`npx tsc --noEmit` → 0 errors; `npm run build` → clean.
