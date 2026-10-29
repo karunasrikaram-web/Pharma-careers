@@ -32,6 +32,10 @@ available, so anything requiring real credentials is marked **NOT TESTED** rathe
 | 11 | Admin email allowlist logic | `npx tsx scripts/smoke-allowlist.ts` (12 assertions) | ✅ **PASS** — 12/12 |
 | 12 | Admin emails / `ADMIN_EMAILS` / service keys absent from the rebuilt client bundle | grep `dist/**` for `karunasrikaram`, `kothapallyhrishikesh3`, `ADMIN_EMAILS`, `SERVICE_ROLE`, `SERVICE_ACCOUNT`, `-----BEGIN`, `AIzaSy`, `eyJhbGciOi` | ✅ **PASS** — 0 matches |
 | 13 | `.env.local` (holds the two real addresses) is not tracked by git | `git ls-files` → only `.env.example` matches `.env*`; `.gitignore` covers `.env`, `.env.*`, `*.local`, `!.env.example` | ✅ **PASS** |
+| 14 | Live Supabase project reachable with the supplied keys | `GET /rest/v1/jobs` with anon key → PostgREST answered; same request **without** a key → `401 No API key found in request` | ✅ **PASS** |
+| 15 | Migration applied to the live project | service-role `GET` on all 5 tables → `[]` / `200` (previously `404 PGRST205`) | ✅ **PASS** |
+| 16 | Live RLS + write-path suite | `npx tsx scripts/smoke-rls.ts` — 28 assertions against the real database | ✅ **PASS** — 28/28 |
+| 17 | Test data cleaned up afterwards | all 5 tables verified at `0` rows after the run | ✅ **PASS** |
 
 Reproduce locally:
 
@@ -58,6 +62,27 @@ npx tsx scripts/smoke-allowlist.ts
 | A10 | Production + empty `ADMIN_EMAILS` → deny (**fail closed**) | ✅ PASS |
 | A11 | That denial is a 403, not a 401 | ✅ PASS |
 | A12 | Development + empty `ADMIN_EMAILS` → claim-only | ✅ PASS |
+
+### Live RLS suite executed (check 16) — 28/28
+
+Run against the real project (`rsyyqtynvqbaeoslxwwc`) with the anon key after seeding one draft and one
+published row per content table using the service role.
+
+| Group | Checks | Result |
+|---|---|---|
+| anon **SELECT** jobs | only `status='published'` rows returned; seeded draft row invisible | ✅ PASS |
+| anon **SELECT** articles | only published rows; draft invisible | ✅ PASS |
+| anon **SELECT** site_content | allowed (public read policy) | ✅ PASS |
+| anon **SELECT** leads | 0 rows despite a seeded lead (no public policy) | ✅ PASS |
+| anon **SELECT** contact_messages | 0 rows despite a seeded message (no public policy) | ✅ PASS |
+| anon **INSERT** into jobs / articles / leads / contact_messages / site_content | all `401` (RLS denial) | ✅ PASS ×5 |
+| anon **UPDATE** of a published job | 0 rows affected, title unchanged when re-read with service role | ✅ PASS ×2 |
+| anon **DELETE** of a published job | 0 rows affected, row still exists | ✅ PASS ×2 |
+| anon **DELETE** site_content / leads | denied, rows still exist | ✅ PASS ×4 |
+| service role **CREATE / PUBLISH / UNPUBLISH / ARCHIVE / DELETE** (jobs) | all succeeded with correct `status` + `is_published` + timestamps | ✅ PASS ×5 |
+| service role **CREATE / PUBLISH / ARCHIVE / DELETE** (articles) | all succeeded | ✅ PASS ×4 |
+| published job still readable by anon at the end | ✅ PASS |
+| cleanup | jobs, articles, leads, contact_messages, site_content all back to `0` rows | ✅ PASS |
 
 ---
 
@@ -144,44 +169,41 @@ Plus `GET /api/admin/me` (admin status check) and `POST /api/admin/logout`.
 
 | # | Check | Result |
 |---|---|---|
-| 1 | Unauthenticated request → 401 | ✅ **PASS** (executed: `GET /api/admin/me`, both with no token and with a garbage token) |
+| 1 | Unauthenticated request → 401 | ✅ **PASS** (executed: `GET /api/admin/me` with no token and with a garbage token; also unauthenticated Supabase REST request → 401) |
 | 2 | Signed-in non-admin → 403 | ⬜ **NOT TESTED** — needs a real Firebase user without the claim |
-| 3 | Admin CRUD + publish / unpublish / archive / delete works | ⬜ **NOT TESTED** — needs live Firebase admin claim + Supabase schema applied |
-| 4 | Anon key cannot read drafts and cannot write | ⬜ **NOT TESTED** — needs the migration applied to a live Supabase project |
+| 3 | Admin CRUD + publish / unpublish / archive / delete works | ⬜ **NOT TESTED** at the *endpoint* layer — needs the Firebase admin claim to call `/api/admin/*`. **Executed at the database layer**: service-role CREATE / PUBLISH / UNPUBLISH / ARCHIVE / DELETE all passed for jobs and articles (10/10, check 16) |
+| 4 | Anon key cannot read drafts and cannot write | ✅ **PASS** (executed live: draft invisible; all 5 inserts → 401; update/delete → 0 rows with rows verified intact afterwards) |
 | 5 | Neutral reset message identical for existing / non-existing emails | ⬜ **NOT TESTED** (UI logic verified by code review: one constant, shown unconditionally, Firebase errors swallowed — but no live email was sent) |
 | 6 | No service account / service role key in client bundle | ✅ **PASS** (executed: grep over the production `dist/` output — 0 matches) |
 
-**Score: 2 PASS · 0 FAIL · 4 NOT TESTED**
+**Score: 3 PASS · 0 FAIL · 3 NOT TESTED**
 
 ---
 
-## 4. How to close the 4 NOT TESTED items
+## 4. How to close the remaining 3 NOT TESTED items
+
+All three now depend only on **Firebase** (Supabase is fully verified):
 
 1. Create a Firebase project → enable **Authentication → Email/Password** → add authorized domains →
    customize the **Password reset** template (action URL `https://<domain>/admin/login`).
-2. Create the owner user in **Authentication → Users**.
-3. Apply the Supabase migration
-   (`supabase/migrations/20260101000000_admin_cms.sql`) and set
-   `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`,
-   `VITE_FIREBASE_*`, `FIREBASE_SERVICE_ACCOUNT_JSON` in `.env.local`.
-4. Grant the claim: `node scripts/set-admin.js --email owner@example.com`.
-5. Re-run the checklist:
+2. Create two users in **Authentication → Users** (one for each allowlisted address, plus one extra
+   address that is deliberately left off `ADMIN_EMAILS` and without the claim).
+3. Fill `VITE_FIREBASE_*` and `FIREBASE_SERVICE_ACCOUNT_JSON` in `.env.local`.
+4. Grant the claim: `node scripts/set-admin.js --email karunasrikaram@gmail.com` (repeat for the second).
+5. Run the checks:
 
 ```powershell
-# (1) unauthenticated → 401  [already passing]
+# (1) unauthenticated → 401  [PASS — already executed]
 npx tsx scripts/smoke-admin-me.ts
 
 # (2) signed-in non-admin → 403
-#     Sign in at /admin/login as a second user without the claim, then:
-#     GET /api/admin/me with that user's ID token → expect 403 {"error":"Forbidden"}
+#     Sign in as the third user, then GET /api/admin/me with their ID token
+#     → expect 403 {"error":"Forbidden"} and the access-denied page in /admin/dashboard.
+#     Also confirm an allowlisted address WITHOUT the claim → 403.
 
-# (3) admin CRUD + publish/unpublish/archive/delete
-#     With the owner token, exercise /api/admin/jobs (POST/PATCH/DELETE),
+# (3) admin CRUD through the endpoints
+#     With an owner token: POST/PATCH/DELETE /api/admin/jobs, then
 #     /api/admin/jobs/publish|unpublish|archive and the articles equivalents.
-
-# (4) anon key cannot read drafts or write
-#     curl "$SUPABASE_URL/rest/v1/jobs?select=*" -H "apikey: $VITE_SUPABASE_ANON_KEY"
-#     → only status='published' rows; then attempt an insert → 401/403 from RLS.
 
 # (5) neutral reset message
 #     Request a reset for a known admin email and for a random address;
@@ -189,5 +211,5 @@ npx tsx scripts/smoke-admin-me.ts
 #     "If an account exists for this email, a reset link has been sent."
 ```
 
-Nothing in section 3 was marked PASS without execution; these four remain open until real
-Firebase + Supabase credentials exist.
+Nothing in section 3 was marked PASS without execution; these three remain open until a real
+Firebase project exists. The Supabase half of the system is fully verified against live data.

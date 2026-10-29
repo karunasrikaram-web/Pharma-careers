@@ -156,6 +156,7 @@ ADMIN_EMAILS=first.admin@gmail.com,second.admin@gmail.com
 | `scripts/smoke-admin-me.ts` → unsupported method | ✅ PASS — returned `405` |
 | `scripts/smoke-allowlist.ts` → 12 assertions on the `ADMIN_EMAILS` allowlist (both configured addresses allowed, outsider denied → 403, case-insensitive match, 401 never upgraded, fail-closed in production, claim-only in development) | ✅ PASS — 12/12 |
 | Client bundle re-scanned after the allowlist change for admin emails / `ADMIN_EMAILS` / service keys | ✅ PASS — no matches |
+| `scripts/smoke-rls.ts` → live RLS + write-path suite against the real Supabase project (anon select/insert/update/delete across all 5 tables, service-role CRUD) | ✅ PASS — 28/28, test rows cleaned up |
 
 ### Live checks still requiring real credentials (not run here)
 
