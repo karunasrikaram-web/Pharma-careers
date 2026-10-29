@@ -129,7 +129,7 @@ export default function AdminLogin() {
   return (
     <div style={styles.center}>
       <div style={styles.card}>
-        <h1 style={styles.title}>{mode === "login" ? "Admin sign in" : "Reset your password"}</h1>
+        <h1 style={{ ...styles.title, color: "#e6eaf2" }}>{mode === "login" ? "Admin sign in" : "Reset your password"}</h1>
         <div style={styles.subtitle}>Firebase · email + password</div>
 
         {mode === "login" ? (
@@ -218,7 +218,7 @@ export default function AdminLogin() {
         )}
 
         <div style={{ marginTop: 18, borderTop: "1px solid #22304d", paddingTop: 14 }}>
-          <div style={{ fontSize: 13, fontWeight: 700 }}>Password reset &amp; Firebase setup</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#e6eaf2" }}>Password reset &amp; Firebase setup</div>
           <div style={{ ...styles.muted, marginTop: 6, textAlign: "left" }}>
             <p>
               <strong>Reset email</strong> uses Firebase <code>sendPasswordResetEmail</code>. The reset link uses

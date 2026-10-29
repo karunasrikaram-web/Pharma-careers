@@ -7,4 +7,5 @@ dist-ssr
 !.env.example
 *firebase-adminsdk*.json
 service-account*.json
+.screenshots
 .DS_Store

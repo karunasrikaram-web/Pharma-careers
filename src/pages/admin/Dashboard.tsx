@@ -95,7 +95,7 @@ export default function AdminDashboard() {
         </div>
       </header>
       <main style={{ padding: 24 }}>
-        <h1 style={{ fontSize: 28 }}>Admin dashboard</h1>
+        <h1 style={{ fontSize: 28, color: "#e6eaf2" }}>Admin dashboard</h1>
         <p style={{ color: "#9aa7bd" }}>
           Firebase admin verified. Server-side authorization via the <code>admin: true</code> custom claim.
         </p>
@@ -109,7 +109,7 @@ function AdminAccessDeniedInline({ email }: { email: string | null }) {
   return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, background: "#0b1020" }}>
       <div style={{ maxWidth: 560, textAlign: "center", background: "#121a2e", border: "1px solid #22304d", borderRadius: 16, padding: 32 }}>
-        <h1 style={{ fontSize: 28 }}>Access denied</h1>
+        <h1 style={{ fontSize: 28, color: "#e6eaf2" }}>Access denied</h1>
         <p style={{ color: "#9aa7bd" }}>
           Your account{email ? ` (${email})` : ""} is signed in, but it does not have the Firebase admin claim
           required to view this area.

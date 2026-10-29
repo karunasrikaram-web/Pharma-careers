@@ -1,9 +1,13 @@
 # Pharma Careers
 
-End-to-end pharma careers website backend: **Firebase Authentication** (admin) + **Supabase** (data).
+Pharma careers website: a **public job board** (light editorial design) plus a **Firebase
+Authentication–guarded admin console**, with **Supabase** for data.
 
 ## TL;DR
 
+- The public site (`/`, `/jobs`, `/jobs/:id`, `/about`, `/contact`, `/privacy`, `/disclaimer`) shows
+  **published jobs only**, read with the Supabase **anon key** (enforced by RLS). When no jobs are
+  published yet, it shows clearly badged **illustrative sample vacancies**.
 - Admins sign in with **Firebase email + password** (`/admin/login`).
 - Admin authorization is a **Firebase custom claim** (`admin: true`) — never a client-readable flag.
 - Admin access additionally requires the address to be on the server-side **`ADMIN_EMAILS` allowlist**
@@ -45,6 +49,23 @@ ADMIN_EMAILS=
 
 The Supabase **anon** key is used for public reads only. The **service role** key bypasses RLS and must never
 be prefixed with `VITE_` / `NEXT_PUBLIC_` and must never reach the browser.
+
+## Public website
+
+- **Theme:** light editorial layout, deep-green branding, lime "Latest Jobs" pill, serif display
+  headings (`src/index.css` holds the design tokens).
+- **Pages:** Home (hero + keyword/location search, department chips, Latest Job Alerts), All Jobs
+  (search + department filters via URL params), Job detail, About, Contact, Privacy Policy,
+  Disclaimer. Header nav: Home / All Jobs / About / Contact; footer links to About / Contact /
+  Privacy Policy / Disclaimer.
+- **Job data:** `src/lib/publicJobs.ts` fetches `status='published'` rows through the anon client
+  (`src/lib/publicSupabase.ts`). If Supabase is unconfigured or nothing is published, the site falls
+  back to built-in sample vacancies — every card and detail page carries an
+  **"Illustrative sample vacancy"** badge and the section is labelled "Sample Job Alerts".
+- **Contact form:** `POST /api/contact` (public, no auth) — Zod-validated, rate-limited (5/min per
+  IP), stored with the service-role key. The anon key cannot write to `contact_messages` (RLS), so
+  this endpoint is the only public write path. Covered by `npm run smoke:contact` (7/7).
+- The admin console keeps its own dark, self-contained styling and no public header/footer.
 
 ## Firebase setup (admin)
 
@@ -97,6 +118,7 @@ The script calls `auth.setCustomUserClaims(uid, { admin: true })`.
 | `/api/admin/site-content` | GET, PUT | Read / upsert site content |
 | `/api/admin/leads` | GET, PATCH, DELETE | List / update / delete viewing leads |
 | `/api/admin/contact-messages` | GET, DELETE | List / delete contact messages |
+| `/api/contact` | POST | Public contact form (Zod-validated, 5/min per IP, service-role insert) |
 
 ## Admin email allowlist
 
@@ -161,6 +183,8 @@ ADMIN_EMAILS=first.admin@gmail.com,second.admin@gmail.com
 | `npm run check:firebase` → readiness report against the real Firebase project (users, claims, web config, service account, allowlist) | ✅ PASS — `OVERALL: READY` |
 | `scripts/smoke-admin-live.ts` → live admin endpoint suite: real Firebase Auth REST sign-ins driving the real handlers + real Supabase writes (401/403 matrix, allowlist isolation, claim requirement, session cookie, full jobs + articles CRUD with publish/unpublish/archive, site content, leads, contact messages, Zod 400/405, per-IP 429, logout) | ✅ PASS — 50/50, final state CLEAN |
 | `scripts/test-login-ui.ts` → headless Chromium against `npm run dev` with the real Firebase client SDK (neutral reset message for existing + non-existing emails, ticking 60 s cooldown, generic sign-in error) | ✅ PASS — 4/4 |
+| `scripts/smoke-contact.ts` → public contact endpoint (201 + stored, anon cannot read messages, Zod 400, 405, per-IP 429 after 5, different IP unaffected) | ✅ PASS — 7/7, rows cleaned up |
+| `scripts/screenshot-pages.ts` → every page rendered in headless Chromium; console/page errors collected | ✅ PASS — 8 pages, 0 errors |
 
 All live suites clean up after themselves (database back to 0 rows, temporary probe user deleted,
 admin claims restored).

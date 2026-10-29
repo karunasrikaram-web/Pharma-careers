@@ -14,7 +14,11 @@
     "admin:set": "tsx scripts/set-admin.ts",
     "smoke:admin": "tsx scripts/smoke-admin-me.ts",
     "smoke:allowlist": "tsx scripts/smoke-allowlist.ts",
-    "smoke:rls": "tsx scripts/smoke-rls.ts"
+    "smoke:rls": "tsx scripts/smoke-rls.ts",
+    "smoke:admin-live": "tsx scripts/smoke-admin-live.ts",
+    "smoke:contact": "tsx scripts/smoke-contact.ts",
+    "test:login-ui": "tsx scripts/test-login-ui.ts",
+    "screenshots": "tsx scripts/screenshot-pages.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
