@@ -56,7 +56,8 @@ export async function verifyAdminToken(token: string): Promise<AdminAuthResult> 
 }
 
 export async function createAdminSessionCookie(idToken: string, maxAgeSeconds = 3600): Promise<string> {
-  const token = await getFirebaseAdmin().auth().createSessionCookie(idToken, { expiresIn: maxAgeSeconds });
+  // firebase-admin expects expiresIn in MILLISECONDS (minimum 5 minutes).
+  const token = await getFirebaseAdmin().auth().createSessionCookie(idToken, { expiresIn: maxAgeSeconds * 1000 });
   return token;
 }
 

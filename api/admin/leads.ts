@@ -26,7 +26,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
     }
     const { id, ...rest } = parsed.data;
-    const { data, error } = await db.from("leads").update(rest).eq("id", id).select().single();
+    // API payloads are camelCase; the Postgres columns are snake_case.
+    const columnMap: Record<string, string> = {
+      jobId: "job_id",
+      candidateName: "candidate_name",
+    };
+    const row: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(rest)) {
+      row[columnMap[key] ?? key] = value;
+    }
+    const { data, error } = await db.from("leads").update(row).eq("id", id).select().single();
     if (error) return res.status(500).json({ error: error.message });
     if (!data) return res.status(404).json({ error: "Lead not found" });
     return res.status(200).json({ lead: data });

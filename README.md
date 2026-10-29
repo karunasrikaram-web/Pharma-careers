@@ -66,7 +66,7 @@ FIREBASE_PROJECT_ID=… FIREBASE_CLIENT_EMAIL=… FIREBASE_PRIVATE_KEY=… \
   node scripts/set-admin.js --uid <firebase-uid>
 ```
 
-The script calls `auth.setCustomUserAttributes(uid, { admin: true })`.
+The script calls `auth.setCustomUserClaims(uid, { admin: true })`.
 
 ## Admin auth flow
 
@@ -85,6 +85,7 @@ The script calls `auth.setCustomUserAttributes(uid, { admin: true })`.
 | Route | Methods | Purpose |
 |---|---|---|
 | `/api/admin/me` | GET | Admin status check |
+| `/api/admin/logout` | POST | Clears the httpOnly session cookie (client also calls Firebase `signOut()`) |
 | `/api/admin/jobs` | GET, POST, PATCH, DELETE | List / create / update / delete jobs |
 | `/api/admin/jobs/publish` | POST | Publish job |
 | `/api/admin/jobs/unpublish` | POST | Unpublish job |
@@ -157,18 +158,15 @@ ADMIN_EMAILS=first.admin@gmail.com,second.admin@gmail.com
 | `scripts/smoke-allowlist.ts` → 12 assertions on the `ADMIN_EMAILS` allowlist (both configured addresses allowed, outsider denied → 403, case-insensitive match, 401 never upgraded, fail-closed in production, claim-only in development) | ✅ PASS — 12/12 |
 | Client bundle re-scanned after the allowlist change for admin emails / `ADMIN_EMAILS` / service keys | ✅ PASS — no matches |
 | `scripts/smoke-rls.ts` → live RLS + write-path suite against the real Supabase project (anon select/insert/update/delete across all 5 tables, service-role CRUD) | ✅ PASS — 28/28, test rows cleaned up |
+| `npm run check:firebase` → readiness report against the real Firebase project (users, claims, web config, service account, allowlist) | ✅ PASS — `OVERALL: READY` |
+| `scripts/smoke-admin-live.ts` → live admin endpoint suite: real Firebase Auth REST sign-ins driving the real handlers + real Supabase writes (401/403 matrix, allowlist isolation, claim requirement, session cookie, full jobs + articles CRUD with publish/unpublish/archive, site content, leads, contact messages, Zod 400/405, per-IP 429, logout) | ✅ PASS — 50/50, final state CLEAN |
+| `scripts/test-login-ui.ts` → headless Chromium against `npm run dev` with the real Firebase client SDK (neutral reset message for existing + non-existing emails, ticking 60 s cooldown, generic sign-in error) | ✅ PASS — 4/4 |
 
-### Live checks still requiring real credentials (not run here)
+All live suites clean up after themselves (database back to 0 rows, temporary probe user deleted,
+admin claims restored).
 
-- [ ] Firebase admin user created → `node scripts/set-admin.js --email …` → claim `admin: true` set.
-- [ ] Unauthenticated admin request → `401`.
-- [ ] Logged-in Firebase user **without** admin claim → `403` on every admin endpoint.
-- [ ] Admin can create / edit / publish / unpublish / archive / delete jobs.
-- [ ] Anon Supabase key cannot read drafts and cannot write to any table.
-- [ ] Password reset email arrives; neutral message identical for existing and non-existing emails.
-
-> Nothing above was marked PASS without being executed; the PASS/FAIL items that could not be run without
-> live Firebase + Supabase credentials are listed as pending.
+> Full PASS/FAIL evidence, including the three bugs the first live run caught and how they were fixed,
+> is in `VERIFICATION.md`.
 
 The full, per-requirement PASS/FAIL matrix — including the four live checks still open and exactly how to
 close them — lives in [`VERIFICATION.md`](./VERIFICATION.md).

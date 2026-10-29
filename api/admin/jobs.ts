@@ -31,23 +31,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
     }
     const payload = parsed.data;
+    const insertRow: Record<string, unknown> = {
+      title: payload.title,
+      company: payload.company,
+      location: payload.location ?? null,
+      level: payload.level ?? null,
+      category: payload.category ?? null,
+      description: payload.description ?? null,
+      requirements: payload.requirements ?? null,
+      salary_min: payload.salaryMin ?? null,
+      salary_max: payload.salaryMax ?? null,
+      status: payload.status,
+    };
+    // location_type / employment_type are NOT NULL with DB defaults: only send
+    // an explicit value, never null (null would violate the constraint).
+    if (payload.locationType != null) insertRow.location_type = payload.locationType;
+    if (payload.employmentType != null) insertRow.employment_type = payload.employmentType;
+    if (payload.currency != null) insertRow.currency = payload.currency;
     const { data, error } = await db
       .from("jobs")
-      .insert({
-        title: payload.title,
-        company: payload.company,
-        location: payload.location ?? null,
-        location_type: payload.locationType ?? null,
-        employment_type: payload.employmentType ?? null,
-        level: payload.level ?? null,
-        category: payload.category ?? null,
-        description: payload.description ?? null,
-        requirements: payload.requirements ?? null,
-        salary_min: payload.salaryMin ?? null,
-        salary_max: payload.salaryMax ?? null,
-        currency: payload.currency ?? null,
-        status: payload.status,
-      })
+      .insert(insertRow)
       .select()
       .single();
     if (error) return res.status(500).json({ error: error.message });
@@ -61,9 +64,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
     }
     const { id, ...rest } = parsed.data;
+    // API payloads are camelCase; the Postgres columns are snake_case.
+    const columnMap: Record<string, string> = {
+      locationType: "location_type",
+      employmentType: "employment_type",
+      salaryMin: "salary_min",
+      salaryMax: "salary_max",
+    };
+    const row: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(rest)) {
+      row[columnMap[key] ?? key] = value;
+    }
     const { data, error } = await db
       .from("jobs")
-      .update(rest)
+      .update(row)
       .eq("id", id)
       .select()
       .single();

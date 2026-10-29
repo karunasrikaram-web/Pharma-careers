@@ -80,6 +80,14 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const isResetCoolingDown = now < resetCooldownUntil;
   const resetCooldownSecondsLeft = Math.max(0, Math.ceil((resetCooldownUntil - now) / 1000));
 
+  // Tick once per second while cooling down so the countdown actually counts.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!isResetCoolingDown) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [isResetCoolingDown]);
+
   const value = useMemo(
     () => ({
       user,

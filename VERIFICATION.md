@@ -2,8 +2,10 @@
 
 **Scope:** Firebase Authentication for admins, Supabase for data.
 **Date:** 2026-10-29
-**Environment:** Local scaffold only — no live Firebase project or Supabase project credentials were
-available, so anything requiring real credentials is marked **NOT TESTED** rather than PASS.
+**Environment:** Live Firebase project `pharma-da29d` (3 real users, Email/Password provider, admin
+claims granted) + live Supabase project `rsyyqtynvqbaeoslxwwc` (migration applied). Every check below
+was executed against these real services; nothing is inferred from code review alone except where a
+row explicitly says "implemented".
 
 ## How to read this report
 
@@ -36,6 +38,9 @@ available, so anything requiring real credentials is marked **NOT TESTED** rathe
 | 15 | Migration applied to the live project | service-role `GET` on all 5 tables → `[]` / `200` (previously `404 PGRST205`) | ✅ **PASS** |
 | 16 | Live RLS + write-path suite | `npx tsx scripts/smoke-rls.ts` — 28 assertions against the real database | ✅ **PASS** — 28/28 |
 | 17 | Test data cleaned up afterwards | all 5 tables verified at `0` rows after the run | ✅ **PASS** |
+| 18 | Firebase readiness | `npm run check:firebase` — real users, claims, web config, service account, allowlist | ✅ **PASS** — `OVERALL: READY` (3 users; both allowlisted addresses have `admin:true`; stray user has no claim) |
+| 19 | **Live admin endpoint suite** | `npx tsx scripts/smoke-admin-live.ts` — real Firebase Auth REST sign-ins driving the real `api/` handlers + real Supabase writes | ✅ **PASS** — **50/50**, final state CLEAN (5 tables 0 rows, probe user deleted, admin claims intact) |
+| 20 | **Login UI in a real browser** | `npx tsx scripts/test-login-ui.ts` — headless Chromium against `npm run dev`, real Firebase client SDK | ✅ **PASS** — 4/4 |
 
 Reproduce locally:
 
@@ -44,7 +49,64 @@ npx tsc --noEmit
 npm run build
 npx tsx scripts/smoke-admin-me.ts
 npx tsx scripts/smoke-allowlist.ts
+npx tsx scripts/smoke-rls.ts          # needs SUPABASE keys in .env.local
+npm run check:firebase                # needs Firebase creds in .env.local
+npx tsx scripts/smoke-admin-live.ts   # needs both + test passwords in .env.local
+npm run dev                           # then, in another terminal:
+npx tsx scripts/test-login-ui.ts
 ```
+
+### Live admin endpoint suite executed (check 19) — 50/50
+
+`scripts/smoke-admin-live.ts` signs the three real users in through the public Firebase Auth REST API
+(the same endpoint `signInWithEmailAndPassword` uses), then drives the real handlers with those ID
+tokens against the real database.
+
+| Group | Checks | Result |
+|---|---|---|
+| sign-in | admin1 + admin2 + stray user mint real ID tokens | ✅ PASS |
+| 401 matrix | no token → 401; garbage token → 401 on `/me` | ✅ PASS ×2 |
+| 403 matrix (signed-in non-admin) | stray user → 403 on `/me`, `GET /jobs`, `POST /jobs`, `PUT /site-content`, `POST /logout` | ✅ PASS ×5 |
+| admin happy path | both allowlisted admins → 200 on `/me` with own email | ✅ PASS ×2 |
+| allowlist isolation | admin claim + non-allowlisted address → 403 on `/me` and `POST /jobs` (temp user deleted afterwards) | ✅ PASS ×2 |
+| claim requirement | allowlisted address with claim removed → 403; claim restored → 200 | ✅ PASS ×2 |
+| session cookie | real Firebase session cookie → 200 for admin1; non-admin cookie → 403 | ✅ PASS ×2 |
+| jobs CRUD | POST draft → 201; draft invisible to anon; admin list; PATCH; publish → visible to anon; unpublish → hidden again; archive; DELETE; gone for anon | ✅ PASS ×10 |
+| articles CRUD | POST draft → 201; draft invisible to anon; publish → visible; unpublish; archive (by admin2); DELETE | ✅ PASS ×6 |
+| site content | PUT upsert → 200 + echo; admin GET includes the key | ✅ PASS ×2 |
+| leads | service-role seed; admin GET lists it; admin2 PATCH status; DELETE | ✅ PASS ×4 |
+| contact messages | service-role seed; admin GET lists it; DELETE | ✅ PASS ×3 |
+| validation | invalid job body → 400 (Zod); publish without id → 400; wrong method → 405 | ✅ PASS ×3 |
+| rate limit | 121 requests from one IP → first 120 processed, 121st → 429; a different IP unaffected | ✅ PASS ×2 |
+| logout | POST → 200 + `Max-Age=0` expiring cookie; fresh sign-in afterwards → 200 | ✅ PASS ×2 |
+| final state | jobs/articles/leads/contact_messages/site_content all 0 rows; probe user deleted; admin claims intact | ✅ CLEAN |
+
+Three real bugs were found by the first run (40/50) and fixed before this score:
+
+1. `POST /api/admin/jobs` wrote `null` into `location_type` / `employment_type`
+   (`NOT NULL DEFAULT` columns) → 500. Now the keys are omitted unless a value was supplied,
+   letting the database defaults apply.
+2. `createAdminSessionCookie` passed `expiresIn: 3600` but firebase-admin expects **milliseconds**
+   (minimum 5 minutes) → every session-cookie creation threw. Now `maxAgeSeconds * 1000`.
+3. Job/article/lead PATCH sent camelCase keys (`salaryMin`, `jobId`, …) to Postgres, which expects
+   snake_case → 500. Now mapped through an explicit column map.
+
+Additionally, `POST /api/admin/logout` no longer calls `revokeRefreshTokens`: the spec requires only
+`signOut()` + clearing the session cookie, and revoking made legitimate fresh sign-ins fail
+`verifyIdToken(checkRevoked=true)` for a propagation window (measured: still failing >6 s after
+revocation because freshly minted tokens carried an `iat` before the revocation timestamp).
+
+### Login UI in a real browser (check 20) — 4/4
+
+`scripts/test-login-ui.ts` drives headless Chromium (Playwright) against `npm run dev` with the real
+Firebase client SDK.
+
+| Check | Result |
+|---|---|
+| "Forgot password?" for an **existing** admin email → exactly `If an account exists for this email, a reset link has been sent.` | ✅ PASS |
+| 60 s cooldown: submit disabled, countdown ticks down live (observed 60 → 57) | ✅ PASS |
+| "Forgot password?" for a **non-existing** address → byte-identical message | ✅ PASS |
+| Wrong password on sign-in → generic `Invalid email or password.` | ✅ PASS |
 
 ### Allowlist assertions executed (check 11)
 
@@ -101,7 +163,7 @@ published row per content table using the service role.
 | Neutral reset message **identical** for existing and non-existing emails | ✅ implemented — single constant `NEUTRAL_RESET_MESSAGE = "If an account exists for this email, a reset link has been sent."`, shown unconditionally; Firebase errors are swallowed |
 | Button cooldown on reset | ✅ implemented — 60 s cooldown with live countdown |
 | Guidance for reset-email template, authorized domains, action URL | ✅ implemented — rendered panel on the login page + README §Firebase setup |
-| Logout: `signOut()` + clear server session cookie + redirect `/admin/login` | ✅ implemented (`AdminAuthContext.signOut`, `api/admin/logout.ts` clears the httpOnly cookie and revokes refresh tokens, `Dashboard.handleSignOut` navigates to `/admin/login`) |
+| Logout: `signOut()` + clear server session cookie + redirect `/admin/login` | ✅ implemented (`AdminAuthContext.signOut`, `api/admin/logout.ts` clears the httpOnly cookie — deliberately **without** server-side token revocation, see check 19 notes — `Dashboard.handleSignOut` navigates to `/admin/login`) |
 
 ### Server-side authorization
 
@@ -170,46 +232,22 @@ Plus `GET /api/admin/me` (admin status check) and `POST /api/admin/logout`.
 | # | Check | Result |
 |---|---|---|
 | 1 | Unauthenticated request → 401 | ✅ **PASS** (executed: `GET /api/admin/me` with no token and with a garbage token; also unauthenticated Supabase REST request → 401) |
-| 2 | Signed-in non-admin → 403 | ⬜ **NOT TESTED** — needs a real Firebase user without the claim |
-| 3 | Admin CRUD + publish / unpublish / archive / delete works | ⬜ **NOT TESTED** at the *endpoint* layer — needs the Firebase admin claim to call `/api/admin/*`. **Executed at the database layer**: service-role CREATE / PUBLISH / UNPUBLISH / ARCHIVE / DELETE all passed for jobs and articles (10/10, check 16) |
+| 2 | Signed-in non-admin → 403 | ✅ **PASS** (executed live: stray user → 403 on `/me`, `GET /jobs`, `POST /jobs`, `PUT /site-content`, `POST /logout`; also admin claim without allowlist → 403, and allowlisted address without claim → 403) |
+| 3 | Admin CRUD + publish / unpublish / archive / delete works | ✅ **PASS** (executed live through the real endpoints: full jobs chain POST→PATCH→publish→unpublish→archive→DELETE, articles chain by both admins, site-content upsert, leads PATCH/DELETE, contact-messages DELETE — 50/50 suite) |
 | 4 | Anon key cannot read drafts and cannot write | ✅ **PASS** (executed live: draft invisible; all 5 inserts → 401; update/delete → 0 rows with rows verified intact afterwards) |
-| 5 | Neutral reset message identical for existing / non-existing emails | ⬜ **NOT TESTED** (UI logic verified by code review: one constant, shown unconditionally, Firebase errors swallowed — but no live email was sent) |
+| 5 | Neutral reset message identical for existing / non-existing emails | ✅ **PASS** (executed in real Chromium: byte-identical message for a real admin address and a random address; 60 s cooldown observed ticking 60 → 57; wrong password → generic error) |
 | 6 | No service account / service role key in client bundle | ✅ **PASS** (executed: grep over the production `dist/` output — 0 matches) |
 
-**Score: 3 PASS · 0 FAIL · 3 NOT TESTED**
+**Score: 6 PASS · 0 FAIL · 0 NOT TESTED**
 
 ---
 
-## 4. How to close the remaining 3 NOT TESTED items
+## 4. Reproduction notes
 
-All three now depend only on **Firebase** (Supabase is fully verified):
+All checks are re-runnable from a clean checkout with credentials in `.env.local`
+(see the reproduce block in section 1). The live suites always clean up after themselves
+(`finally` blocks + explicit final-state verification): the database returns to 0 rows, the
+temporary probe Firebase user is deleted, and admin claims are restored if a test strips them.
 
-1. Create a Firebase project → enable **Authentication → Email/Password** → add authorized domains →
-   customize the **Password reset** template (action URL `https://<domain>/admin/login`).
-2. Create two users in **Authentication → Users** (one for each allowlisted address, plus one extra
-   address that is deliberately left off `ADMIN_EMAILS` and without the claim).
-3. Fill `VITE_FIREBASE_*` and `FIREBASE_SERVICE_ACCOUNT_JSON` in `.env.local`.
-4. Grant the claim: `node scripts/set-admin.js --email karunasrikaram@gmail.com` (repeat for the second).
-5. Run the checks:
-
-```powershell
-# (1) unauthenticated → 401  [PASS — already executed]
-npx tsx scripts/smoke-admin-me.ts
-
-# (2) signed-in non-admin → 403
-#     Sign in as the third user, then GET /api/admin/me with their ID token
-#     → expect 403 {"error":"Forbidden"} and the access-denied page in /admin/dashboard.
-#     Also confirm an allowlisted address WITHOUT the claim → 403.
-
-# (3) admin CRUD through the endpoints
-#     With an owner token: POST/PATCH/DELETE /api/admin/jobs, then
-#     /api/admin/jobs/publish|unpublish|archive and the articles equivalents.
-
-# (5) neutral reset message
-#     Request a reset for a known admin email and for a random address;
-#     both must render exactly:
-#     "If an account exists for this email, a reset link has been sent."
-```
-
-Nothing in section 3 was marked PASS without execution; these three remain open until a real
-Firebase project exists. The Supabase half of the system is fully verified against live data.
+Note on check 5: the browser test triggers a real Firebase password-reset email to the first address
+in `ADMIN_EMAILS` (one email per run) — that is inherent to verifying the flow honestly.
