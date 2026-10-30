@@ -9,3 +9,5 @@ dist-ssr
 service-account*.json
 .screenshots
 .DS_Store
+
+.vercel
