@@ -40,7 +40,7 @@ row explicitly says "implemented".
 | 16 | Live RLS + write-path suite | `npx tsx scripts/smoke-rls.ts` — 28 assertions against the real database | ✅ **PASS** — 28/28 |
 | 17 | Test data cleaned up afterwards | all 5 tables verified at `0` rows after the run | ✅ **PASS** |
 | 18 | Firebase readiness | `npm run check:firebase` — real users, claims, web config, service account, allowlist | ✅ **PASS** — `OVERALL: READY` (3 users; both allowlisted addresses have `admin:true`; stray user has no claim) |
-| 19 | **Live admin endpoint suite** | `npx tsx scripts/smoke-admin-live.ts` — real Firebase Auth REST sign-ins driving the real `api/` handlers + real Supabase writes | ✅ **PASS** — **50/50**, final state CLEAN (5 tables 0 rows, probe user deleted, admin claims intact) |
+| 19 | **Live admin endpoint suite** | `npx tsx scripts/smoke-admin-live.ts` — real Firebase Auth REST sign-ins driving the real `server/` handlers + real Supabase writes | ✅ **PASS** — **50/50**, final state CLEAN (5 tables 0 rows, probe user deleted, admin claims intact) |
 | 20 | **Login UI in a real browser** | `npx tsx scripts/test-login-ui.ts` — headless Chromium against `npm run dev`, real Firebase client SDK | ✅ **PASS** — 4/4 |
 | 21 | **Applications + duplicate-role suite** | `npx tsx scripts/smoke-applications.ts` — public apply endpoint, duplicate rule, `/api/check-application`, anon RLS, admin role→company grouping, resume signed URL, DELETE, re-apply | ✅ **PASS** — **43/43**, DB + storage bucket left at 0 |
 | 22 | **Full console + apply flow in a real browser** | `npx tsx scripts/check-console-ui.ts` — sign in → publish a job through the UI → public site → `/apply` (no login) → submit a real PDF → console shows it per role and per company → "＋ already applied" blocks a second attempt | ✅ **PASS** — **21/21**, test data cleaned up |
@@ -175,7 +175,7 @@ published row per content table using the service role.
 | Neutral reset message **identical** for existing and non-existing emails | ✅ implemented — single constant `NEUTRAL_RESET_MESSAGE = "If an account exists for this email, a reset link has been sent."`, shown unconditionally; Firebase errors are swallowed |
 | Button cooldown on reset | ✅ implemented — 60 s cooldown with live countdown |
 | Guidance for reset-email template, authorized domains, action URL | ✅ implemented — rendered panel on the login page + README §Firebase setup |
-| Logout: `signOut()` + clear server session cookie + redirect `/admin/login` | ✅ implemented (`AdminAuthContext.signOut`, `api/admin/logout.ts` clears the httpOnly cookie — deliberately **without** server-side token revocation, see check 19 notes — `Dashboard.handleSignOut` navigates to `/admin/login`) |
+| Logout: `signOut()` + clear server session cookie + redirect `/admin/login` | ✅ implemented (`AdminAuthContext.signOut`, `server/admin/logout.ts` clears the httpOnly cookie — deliberately **without** server-side token revocation, see check 19 notes — `Dashboard.handleSignOut` navigates to `/admin/login`) |
 
 ### Server-side authorization
 
@@ -184,11 +184,11 @@ published row per content table using the service role.
 | Firebase custom claim `admin: true` only — no client-readable field, no localStorage flag | ✅ implemented (claim read from `verifyIdToken` / `getUser().customClaims`; grep confirms no client flag) |
 | One-time `scripts/set-admin.js` using `firebase-admin` + local service account, by UID or email | ✅ implemented (`--uid` / `--email`, no hardcoded password or UID) |
 | Owner creates the user in Firebase Console → Authentication → Users | ✅ documented in README |
-| Every admin endpoint reads `Authorization: Bearer <id token>` **or** httpOnly session cookie created via `createSessionCookie` | ✅ implemented (`api/_lib/auth.ts` → `requireAdmin`) |
+| Every admin endpoint reads `Authorization: Bearer <id token>` **or** httpOnly session cookie created via `createSessionCookie` | ✅ implemented (`server/_lib/auth.ts` → `requireAdmin`) |
 | Verified with `verifyIdToken` / `verifySessionCookie` with `checkRevoked = true` | ✅ implemented (`verifyIdToken(token, true)` / `verifySessionCookie(token, true)` — v12 boolean signature) |
 | Requires `decodedToken.admin === true`, else 401/403 | ✅ implemented — missing/invalid token → 401, valid token without claim → 403 |
-| Body validated/sanitized server-side | ✅ implemented — Zod schemas in `api/_lib/validate.ts` on every write path |
-| Writes to Supabase use the server-only service role key | ✅ implemented (`api/_lib/db.ts`, never referenced from `src/`) |
+| Body validated/sanitized server-side | ✅ implemented — Zod schemas in `server/_lib/validate.ts` on every write path |
+| Writes to Supabase use the server-only service role key | ✅ implemented (`server/_lib/db.ts`, never referenced from `src/`) |
 | **Email allowlist (added 2026-10-29):** two addresses required server-side, in addition to the claim | ✅ implemented (`ADMIN_EMAILS` in `.env.local` = `karunasrikaram@gmail.com`, `kothapallyhrishikesh3@gmail.com`; enforced by `enforceAdminAllowlist` inside `requireAdmin`, so it covers bearer **and** cookie paths and every `/api/admin/*` route) |
 | Allowlist fails closed in production when unset, claim-only in dev | ✅ implemented + executed (`smoke-allowlist.ts` A10–A12) |
 | Granting the claim cannot silently bypass the allowlist | ✅ implemented — `scripts/set-admin.js` warns when the target address is not on `ADMIN_EMAILS` and reports `onAllowlist` in its output |

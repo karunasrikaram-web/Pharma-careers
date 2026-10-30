@@ -94,7 +94,7 @@ async function main() {
   }
 
   try {
-    const { getFirebaseAdmin } = await import("../api/_lib/firebase");
+    const { getFirebaseAdmin } = await import("../server/_lib/firebase");
     const auth = getFirebaseAdmin().auth();
     const result = await auth.listUsers(200);
 

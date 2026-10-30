@@ -1,4 +1,4 @@
-import handler from "../api/admin/me";
+import handler from "../server/admin/me";
 
 function makeRes() {
   const res: Record<string, unknown> = { statusCode: 0, body: null as unknown };

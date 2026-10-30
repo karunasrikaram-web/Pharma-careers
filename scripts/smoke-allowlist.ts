@@ -6,7 +6,7 @@ import {
   enforceAdminAllowlist,
   getAllowedAdminEmails,
   isEmailAllowed,
-} from "../api/_lib/auth";
+} from "../server/_lib/auth";
 
 const EMAIL_A = "karunasrikaram@gmail.com";
 const EMAIL_B = "kothapallyhrishikesh3@gmail.com";

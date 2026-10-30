@@ -55,8 +55,8 @@ async function call(handler: Handler, opts: { method: string; body?: Record<stri
 }
 
 async function main() {
-  const { default: handler } = await import("../api/contact");
-  const { getSupabaseAdmin } = await import("../api/_lib/db");
+  const { default: handler } = await import("../server/contact");
+  const { getSupabaseAdmin } = await import("../server/_lib/db");
   const db = getSupabaseAdmin();
   const anon = env.VITE_SUPABASE_ANON_KEY as string;
   const svc = env.SUPABASE_SERVICE_ROLE_KEY as string;

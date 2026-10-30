@@ -33,7 +33,7 @@ async function loadHandler(route: string): Promise<Handler | null> {
   if (cached) return cached;
   if (!/^[a-z0-9/_-]+$/i.test(route)) return null; // path-traversal guard
   try {
-    const mod = (await import(`../api/${route}`)) as { default?: Handler };
+    const mod = (await import(`../server/${route}`)) as { default?: Handler };
     if (typeof mod.default !== "function") return null;
     handlerCache.set(route, mod.default);
     return mod.default;
@@ -153,5 +153,5 @@ createServer((req, res) => {
   const route = url.replace(/^\/api\//, "").split("?")[0];
   void respond(req, res, route);
 }).listen(PORT, () => {
-  console.log(`[api] local dev API on http://localhost:${PORT} (serving api/*.ts handlers)`);
+  console.log(`[api] local dev API on http://localhost:${PORT} (serving server/*.ts handlers)`);
 });

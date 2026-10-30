@@ -94,7 +94,7 @@ async function callHandler(
   };
   r.end = async () => r;
   r.setHeader = () => r;
-  const ip = opts.ip ?? (mod === "../api/applications" ? freshIp() : "10.7.7.7");
+  const ip = opts.ip ?? (mod === "../server/applications" ? freshIp() : "10.7.7.7");
   const headers: Record<string, string> = { "x-forwarded-for": ip, "content-type": "application/json" };
   if (opts.token) headers.authorization = `Bearer ${opts.token}`;
   await handler(
@@ -150,7 +150,7 @@ async function main() {
   }
 
   // ── 1. public endpoint validation ───────────────────────────────────────
-  const noBody = await callHandler("../api/applications", { method: "POST", body: {} });
+  const noBody = await callHandler("../server/applications", { method: "POST", body: {} });
   check("public apply: empty body → 400", noBody.status === 400, `status=${noBody.status}`);
 
   const base = {
@@ -162,10 +162,10 @@ async function main() {
     location: "Pune",
     resume: resume(),
   };
-  const badEmail = await callHandler("../api/applications", { method: "POST", body: base });
+  const badEmail = await callHandler("../server/applications", { method: "POST", body: base });
   check("public apply: invalid email → 400", badEmail.status === 400, `status=${badEmail.status}`);
 
-  const missingSurname = await callHandler("../api/applications", {
+  const missingSurname = await callHandler("../server/applications", {
     method: "POST",
     body: {
       jobId: base.jobId,
@@ -178,7 +178,7 @@ async function main() {
   });
   check("public apply: missing surname → 400", missingSurname.status === 400, `status=${missingSurname.status}`);
 
-  const missingLocation = await callHandler("../api/applications", {
+  const missingLocation = await callHandler("../server/applications", {
     method: "POST",
     body: {
       jobId: base.jobId,
@@ -191,19 +191,19 @@ async function main() {
   });
   check("public apply: missing location → 400", missingLocation.status === 400, `status=${missingLocation.status}`);
 
-  const ghostJob = await callHandler("../api/applications", {
+  const ghostJob = await callHandler("../server/applications", {
     method: "POST",
     body: { ...base, email: "ghost@example.com", surname: "G", name: "Ghost" },
   });
   check("public apply: unknown job → 404", ghostJob.status === 404, `status=${ghostJob.status}`);
 
-  const wrongMethod = await callHandler("../api/applications", { method: "GET" });
+  const wrongMethod = await callHandler("../server/applications", { method: "GET" });
   check("public apply: GET → 405", wrongMethod.status === 405, `status=${wrongMethod.status}`);
 
   // rate limit: 5/min per IP — 6th must be 429
   let saw429 = false;
   for (let i = 0; i < 6; i++) {
-    const r = await callHandler("../api/applications", {
+    const r = await callHandler("../server/applications", {
       method: "POST",
       ip: "10.8.8.8",
       body: { ...base, email: `rate${i}@example.com`, name: `Rate ${i}` },
@@ -214,7 +214,7 @@ async function main() {
 
   // ── 2. create two published jobs: same role title, different companies ──
   const roleTitle = "ZZ Test QA Officer (applications suite)";
-  const created = await admin("../api/admin/jobs", {
+  const created = await admin("../server/admin/jobs", {
     method: "POST",
     body: {
       title: roleTitle,
@@ -233,7 +233,7 @@ async function main() {
   check("admin POST job (status=published) → 201 + publish stamp", created.status === 201 && job.status === "published");
   check("created job has published_at set", Boolean(job.published_at));
 
-  const twin = await admin("../api/admin/jobs", {
+  const twin = await admin("../server/admin/jobs", {
     method: "POST",
     body: { title: roleTitle, company: "ZZ Test Pharma B", status: "published" },
   });
@@ -243,7 +243,7 @@ async function main() {
   try {
     // fake resume against a REAL published job → the magic-byte check runs
     // (job lookup comes first, so this must use a live job id)
-    const notPdf = await callHandler("../api/applications", {
+    const notPdf = await callHandler("../server/applications", {
       method: "POST",
       body: {
         jobId: job.id,
@@ -262,13 +262,13 @@ async function main() {
     check("public apply: fake PDF (bad magic bytes) → 400", notPdf.status === 400, `status=${notPdf.status}`);
 
     // draft job → applying must 404
-    const draft = await admin("../api/admin/jobs", {
+    const draft = await admin("../server/admin/jobs", {
       method: "POST",
       body: { title: "ZZ Draft Role", company: "ZZ Test Co", status: "draft" },
     });
     const draftId = (draft.body as { job: JobRow }).job.id;
 
-    const applyToDraft = await callHandler("../api/applications", {
+    const applyToDraft = await callHandler("../server/applications", {
       method: "POST",
       body: {
         jobId: draftId,
@@ -284,7 +284,7 @@ async function main() {
 
     // ── 3. happy path — the full candidate record ─────────────────────────
     const candidateEmail = `live.candidate.${Date.now()}@example.com`;
-    const apply = await callHandler("../api/applications", {
+    const apply = await callHandler("../server/applications", {
       method: "POST",
       body: {
         jobId: job.id,
@@ -300,7 +300,7 @@ async function main() {
     check("public apply: full valid application → 201", apply.status === 201, `status=${apply.status}`);
 
     // ── 4. DUPLICATE rule ─────────────────────────────────────────────────
-    const againSameJob = await callHandler("../api/applications", {
+    const againSameJob = await callHandler("../server/applications", {
       method: "POST",
       body: {
         jobId: job.id,
@@ -320,7 +320,7 @@ async function main() {
     );
 
     // THE KEY RULE: the same role at ANOTHER company must also be blocked
-    const sameRoleOtherCompany = await callHandler("../api/applications", {
+    const sameRoleOtherCompany = await callHandler("../server/applications", {
       method: "POST",
       body: {
         jobId: twinJob?.id ?? "",
@@ -344,7 +344,7 @@ async function main() {
     );
 
     // ── 5. duplicate-check endpoint (drives the "+" badge) ────────────────
-    const dupCheck = await callHandler("../api/check-application", {
+    const dupCheck = await callHandler("../server/check-application", {
       method: "POST",
       body: { email: candidateEmail },
     });
@@ -356,7 +356,7 @@ async function main() {
       JSON.stringify(dupBody.appliedRoles ?? [])
     );
 
-    const freshCheck = await callHandler("../api/check-application", {
+    const freshCheck = await callHandler("../server/check-application", {
       method: "POST",
       body: { email: `nobody.${Date.now()}@example.com` },
     });
@@ -390,7 +390,7 @@ async function main() {
     check("anon INSERT applications → denied", anonWrite.status >= 400, `status=${anonWrite.status}`);
 
     // ── 7. admin list → ROLE → COMPANY → candidates ───────────────────────
-    const list = await admin("../api/admin/applications", { method: "GET" });
+    const list = await admin("../server/admin/applications", { method: "GET" });
     const listBody = list.body as {
       roles?: Array<{
         title: string;
@@ -420,7 +420,7 @@ async function main() {
     check("admin GET: resume filename present", app?.resume_filename === "Live Test Resume.pdf", String(app?.resume_filename));
 
     // jobId filter
-    const filtered = await admin("../api/admin/applications", {
+    const filtered = await admin("../server/admin/applications", {
       method: "GET",
       query: { jobId: job.id },
     });
@@ -437,27 +437,27 @@ async function main() {
     const appId = app.id;
 
     // ── 8. PATCH status ───────────────────────────────────────────────────
-    const patched = await admin("../api/admin/applications", {
+    const patched = await admin("../server/admin/applications", {
       method: "PATCH",
       body: { id: appId, status: "shortlisted" },
     });
     check("admin PATCH status → 200", patched.status === 200, `status=${patched.status}`);
 
-    const relisted = await admin("../api/admin/applications", { method: "GET", query: { jobId: job.id } });
+    const relisted = await admin("../server/admin/applications", { method: "GET", query: { jobId: job.id } });
     const relistedRole = (relisted.body as {
       roles?: Array<{ title: string; companies: Array<{ applications: Array<{ id: string; status: string }> }> }>;
     }).roles?.find((r) => r.title.toLowerCase() === roleTitle.toLowerCase());
     const relistedApp = relistedRole?.companies.flatMap((c) => c.applications).find((a) => a.id === appId);
     check("status persisted as shortlisted", relistedApp?.status === "shortlisted");
 
-    const badPatch = await admin("../api/admin/applications", {
+    const badPatch = await admin("../server/admin/applications", {
       method: "PATCH",
       body: { id: appId, status: "not-a-status" },
     });
     check("admin PATCH invalid status → 400", badPatch.status === 400, `status=${badPatch.status}`);
 
     // ── 9. resume signed URL downloads ────────────────────────────────────
-    const resumeRes = await admin("../api/admin/applications", {
+    const resumeRes = await admin("../server/admin/applications", {
       method: "GET",
       query: { resume: appId },
     });
@@ -483,10 +483,10 @@ async function main() {
     // ── 11. DELETE → row and file both gone ───────────────────────────────
     const resumePath = String(app.resume_path ?? "");
     const signedUrl = resumeBody.url;
-    const deleted = await admin("../api/admin/applications", { method: "DELETE", body: { id: appId } });
+    const deleted = await admin("../server/admin/applications", { method: "DELETE", body: { id: appId } });
     check("admin DELETE application → 200", deleted.status === 200, `status=${deleted.status}`);
 
-    const afterDelete = await admin("../api/admin/applications", { method: "GET", query: { jobId: job.id } });
+    const afterDelete = await admin("../server/admin/applications", { method: "GET", query: { jobId: job.id } });
     const afterRole = (afterDelete.body as {
       roles?: Array<{ title: string; companies: Array<{ applications: unknown[] }> }>;
     }).roles?.find((r) => r.title.toLowerCase() === roleTitle.toLowerCase());
@@ -519,14 +519,14 @@ async function main() {
       );
     }
 
-    const doubleDelete = await admin("../api/admin/applications", {
+    const doubleDelete = await admin("../server/admin/applications", {
       method: "DELETE",
       body: { id: appId },
     });
     check("DELETE of already-deleted → 404", doubleDelete.status === 404, `status=${doubleDelete.status}`);
 
     // after deleting, the same email may apply for the role again
-    const reapplied = await callHandler("../api/applications", {
+    const reapplied = await callHandler("../server/applications", {
       method: "POST",
       body: {
         jobId: job.id,
@@ -541,22 +541,22 @@ async function main() {
     check("after admin delete, the role can be applied for again → 201", reapplied.status === 201, `status=${reapplied.status}`);
     const reappliedId = (reapplied.body as { id?: string }).id;
     if (reappliedId) {
-      await admin("../api/admin/applications", { method: "DELETE", body: { id: reappliedId } });
+      await admin("../server/admin/applications", { method: "DELETE", body: { id: reappliedId } });
     }
   } finally {
     // cleanup whatever the test created
     for (const id of [job.id, twinJob?.id]) {
-      if (id) await admin("../api/admin/jobs", { method: "DELETE", body: { id } }).catch(() => undefined);
+      if (id) await admin("../server/admin/jobs", { method: "DELETE", body: { id } }).catch(() => undefined);
     }
-    const remaining = await admin("../api/admin/jobs", { method: "GET" }).catch(() => null);
+    const remaining = await admin("../server/admin/jobs", { method: "GET" }).catch(() => null);
     const jobs = (remaining?.body as { jobs?: JobRow[] })?.jobs ?? [];
     for (const j of jobs) {
       if (j.title.startsWith("ZZ ")) {
-        await admin("../api/admin/jobs", { method: "DELETE", body: { id: j.id } }).catch(() => undefined);
+        await admin("../server/admin/jobs", { method: "DELETE", body: { id: j.id } }).catch(() => undefined);
       }
     }
     // sweep any test applications left behind
-    const leftovers = await admin("../api/admin/applications", { method: "GET" }).catch(() => null);
+    const leftovers = await admin("../server/admin/applications", { method: "GET" }).catch(() => null);
     const roles = (leftovers?.body as {
       roles?: Array<{ title: string; companies: Array<{ applications: Array<{ id: string; email?: string }> }> }>;
     })?.roles ?? [];
@@ -564,7 +564,7 @@ async function main() {
       if (!role.title.startsWith("ZZ ")) continue;
       for (const company of role.companies) {
         for (const a of company.applications) {
-          await admin("../api/admin/applications", { method: "DELETE", body: { id: a.id } }).catch(() => undefined);
+          await admin("../server/admin/applications", { method: "DELETE", body: { id: a.id } }).catch(() => undefined);
         }
       }
     }

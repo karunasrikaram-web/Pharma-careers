@@ -158,21 +158,21 @@ async function supa(
 
 async function main() {
   // ── module imports (env is set above) ───────────────────────────────────
-  const { getFirebaseAdmin } = await import("../api/_lib/firebase");
-  const { getSupabaseAdmin } = await import("../api/_lib/db");
-  const { default: meHandler } = await import("../api/admin/me");
-  const { default: logoutHandler } = await import("../api/admin/logout");
-  const { default: jobsHandler } = await import("../api/admin/jobs");
-  const { default: jobPublish } = await import("../api/admin/jobs/publish");
-  const { default: jobUnpublish } = await import("../api/admin/jobs/unpublish");
-  const { default: jobArchive } = await import("../api/admin/jobs/archive");
-  const { default: articlesHandler } = await import("../api/admin/articles");
-  const { default: articlePublish } = await import("../api/admin/articles/publish");
-  const { default: articleUnpublish } = await import("../api/admin/articles/unpublish");
-  const { default: articleArchive } = await import("../api/admin/articles/archive");
-  const { default: siteContentHandler } = await import("../api/admin/site-content");
-  const { default: leadsHandler } = await import("../api/admin/leads");
-  const { default: contactHandler } = await import("../api/admin/contact-messages");
+  const { getFirebaseAdmin } = await import("../server/_lib/firebase");
+  const { getSupabaseAdmin } = await import("../server/_lib/db");
+  const { default: meHandler } = await import("../server/admin/me");
+  const { default: logoutHandler } = await import("../server/admin/logout");
+  const { default: jobsHandler } = await import("../server/admin/jobs");
+  const { default: jobPublish } = await import("../server/admin/jobs/publish");
+  const { default: jobUnpublish } = await import("../server/admin/jobs/unpublish");
+  const { default: jobArchive } = await import("../server/admin/jobs/archive");
+  const { default: articlesHandler } = await import("../server/admin/articles");
+  const { default: articlePublish } = await import("../server/admin/articles/publish");
+  const { default: articleUnpublish } = await import("../server/admin/articles/unpublish");
+  const { default: articleArchive } = await import("../server/admin/articles/archive");
+  const { default: siteContentHandler } = await import("../server/admin/site-content");
+  const { default: leadsHandler } = await import("../server/admin/leads");
+  const { default: contactHandler } = await import("../server/admin/contact-messages");
 
   const auth = getFirebaseAdmin().auth();
   const db = getSupabaseAdmin();

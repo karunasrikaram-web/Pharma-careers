@@ -61,7 +61,7 @@ async function main() {
   }
   process.env.FIREBASE_SERVICE_ACCOUNT_JSON = serviceAccount;
 
-  const { getFirebaseAdmin } = await import("../api/_lib/firebase");
+  const { getFirebaseAdmin } = await import("../server/_lib/firebase");
   const auth = getFirebaseAdmin().auth();
 
   const results: { email: string; status: string; uid: string; envKey: string; password: string }[] = [];
