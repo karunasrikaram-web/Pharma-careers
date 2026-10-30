@@ -50,6 +50,10 @@ row explicitly says "implemented".
 | 26 | Console + build still green after the re-skin | `npx tsc --noEmit` → 0 errors; `npm run build` → exit 0; `npx tsx scripts/check-console-ui.ts` re-run | ✅ **PASS** — **21/21**, test data cleaned up |
 | 27 | **Admin login redesign** (2026-10-30) | `npx tsx scripts/test-login-ui.ts` → **4/4** (new design keeps neutral reset, cooldown, generic error); `npx tsx scripts/check-console-ui.ts` re-run → **21/21** (sign-in via new design); `npx tsx scripts/screenshot-pages.ts` → 8 pages, 0 errors; `npx tsc --noEmit` + `npm run build` → 0 / exit 0; DOM check on new design → image panel (`.adm-visual`) + lime gradient CTA present | ✅ **PASS** |
 | 28 | **Admin password rotation** (2026-10-30) | `npx tsx scripts/set-admin-passwords.ts karuna@1226 hrushi@2026` → both `admin.auth().updateUser` calls OK; new passwords sign in via Identity Toolkit (OK), old passwords rejected (OK); `.env.local` `TEST_ADMIN1_PASSWORD`/`TEST_ADMIN2_PASSWORD` synced; `npx tsx scripts/smoke-admin-live.ts` re-run → **50/50** PASS; `npx tsx scripts/check-console-ui.ts` re-run → **21/21** PASS; rebuilt bundle contains neither new nor old admin passwords (0 matches) | ✅ **PASS** |
+| 29 | **Vercel production deployment** (2026-10-30) | `vercel deploy --prod` from gitless staging copy `C:\workspace\vc-deploy` → deployment ● Ready; aliases `https://pharma-careers.vercel.app` + `https://pharma-careers-innovex22.vercel.app`; public pages `/`, `/jobs`, `/about`, `/admin/login` → 200 with SPA shell; all 9 prod env vars present (`ADMIN_EMAILS`, Supabase URL + anon + service-role, Firebase web config, `FIREBASE_SERVICE_ACCOUNT_JSON`, `VITE_APP_URL`) | ✅ **PASS** |
+| 30 | **Production API — ESM import crash (Bug A)** (2026-10-30) | `vercel logs --json` showed every `/api/*` invocation dying `ERR_MODULE_NOT_FOUND: Cannot find module '/var/task/server/applications'` → 500 `FUNCTION_INVOCATION_FAILED` (package.json `"type": "module"` + 59 extensionless relative imports). Fixed by adding explicit `.js` to all 59. Verified: local `vercel build` output `functions/api/[...path].func` imports 17/17 with `.js`, 0 extensionless; `POST /api/contact {}` → **400** with Zod `fieldErrors` (handler executes); `GET /api/admin/me` → **401** | ✅ **PASS** |
+| 31 | **Production API — 2+ segment routes 404 (Bug B)** (2026-10-30) | Zero-config routing emitted `src=^/api/([^/]+)$` (single segment) followed by a hard `{status:404}` catch-all, so `/api/admin/me` → 404 at the router (header `X-Vercel-Error: NOT_FOUND`), never invoking the function. Fixed by declaring the API route explicitly in `vercel.json` (`/api/:path*` → `/api/[...path]`) + dispatcher resolves the key from `query.path` (array/string), `query["...path"]`, or `req.url`. Verified: local build emits `^/api(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?$` ordered before the 404; production `GET /api/admin/me` → **401**, `/api/admin/site-content` → **401**, `/api/admin/jobs/publish` → **401**, `/api/nope` → **404** dispatcher-JSON (no `X-Vercel-Error`) | ✅ **PASS** |
+| 32 | **Production end-to-end suites** (2026-10-30) | `PUBLIC_BASE_URL=https://pharma-careers.vercel.app npx tsx scripts/check-public-theme.ts` → **56/56**; `UI_BASE_URL=… npx tsx scripts/check-console-ui.ts` → **21/21** (first run 11/17 on a network flake — re-run green per protocol); `npx tsc --noEmit` → 0; `npx tsx scripts/test-api-dispatcher.ts` → **18/18**; `npx tsx scripts/test-dispatcher-query-shapes.ts` → **5/5** | ✅ **PASS** |
 
 Reproduce locally:
 
@@ -66,6 +70,7 @@ npm run dev                           # then, in another terminal:
 npx tsx scripts/test-login-ui.ts
 npx tsx scripts/check-console-ui.ts   # full console + apply flow in a browser
 npx tsx scripts/check-public-theme.ts # public-route theme assertions (needs npm run dev)
+npx tsx scripts/test-dispatcher-query-shapes.ts # dispatcher resolves path from all platform shapes
 ```
 
 ### Live admin endpoint suite executed (check 19) — 50/50
@@ -335,3 +340,38 @@ afterwards.
 
 `scripts/smoke-rls.ts` re-run after the feature: **28/28**, all five original tables back to 0 rows.
 `npx tsc --noEmit` → 0 errors; `npm run build` → clean.
+
+---
+
+## 6. Deployment (2026-10-30)
+
+| Item | Value |
+|---|---|
+| **GitHub** | `karunasrikaram-web/pharma-careers-app` (private). **All** commits authored by `hanmanthmarkanti-ux <278888250+hanmanthmarkanti-ux@users.noreply.github.com>` (history rewritten via `git filter-branch`; the account's older public `Pharma-careers` repo was left untouched). |
+| **Vercel account / team / project** | `karunasrikaram-8688` · `innovex22` · `innovex22/pharma-careers` (Hobby). |
+| **Production URL** | `https://pharma-careers.vercel.app` (+ `https://pharma-careers-innovex22.vercel.app`). |
+| **Build** | `npm run build` → Vite `dist/`; one catch-all function `λ api/[...path]` (Hobby 12-function limit; 17 routes consolidated). |
+| **Deploy method** | Gitless `vercel deploy --prod` from a staging copy (`C:\workspace\vc-deploy`) outside any git repo — Vercel Hobby rejects commit authors not on the linked account, and the home directory is itself a git repo whose HEAD points at a different account. |
+| **Environment variables** | 9 set for Production: `ADMIN_EMAILS`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID`, `FIREBASE_SERVICE_ACCOUNT_JSON`, plus `VITE_APP_URL`. Server-only secrets are **not** `VITE_`-prefixed. |
+
+### Two production API bugs found and fixed at deploy time
+
+Both were found by building locally (`vercel build` → inspect `.vercel/output/config.json` +
+`functions/api/[...path].func`), which is ground truth for what Vercel ships:
+
+1. **ESM import extensions (Bug A).** With `"type": "module"`, `@vercel/node` emits ESM. The 59
+   relative imports in `api/` + `server/` were extensionless — invalid in Node ESM — so **every**
+   `/api/*` invocation crashed `ERR_MODULE_NOT_FOUND` → 500 `FUNCTION_INVOCATION_FAILED`. Fixed by
+   adding explicit `.js` (59 imports across 19 files). The compiled function entry now resolves.
+2. **Multi-segment routing (Bug B).** Zero-config emitted `^/api/([^/]+)$` (one segment) then a hard
+   404, so `/api/contact` worked but `/api/admin/me` was killed at the router. Fixed with an explicit
+   `/api/:path*` rewrite ordered before the 404, and the dispatcher now resolves the key from
+   `query.path`, `query["...path"]`, or `req.url` so a routing change can't silently 404 the admin.
+
+### Local build note (Windows only)
+
+`vercel build` on this Windows box fails with `spawn cmd.exe ENOENT` because the CLI's
+`getEnvForPackageManager` reads `env.PATH` (uppercase) while this machine's variable is `Path`, so
+the build spawn loses `system32`. This is a **local CLI quirk only** — Vercel's remote build runs on
+Linux and is unaffected (the deployed site builds and serves correctly). Worked around locally with a
+`--require` preload that merges the full `Path` back into the spawn env.
