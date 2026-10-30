@@ -1,7 +1,8 @@
 # Pharma Careers — Auth Override Verification Report
 
 **Scope:** Firebase Authentication for admins, Supabase for data.
-**Date:** 2026-10-29 — original report; **2026-10-30** — applications + admin-console addendum (§5).
+**Date:** 2026-10-29 — original report; **2026-10-30** — applications + admin-console addendum (§5),
+client-site theme re-skin (checks 25–26).
 **Environment:** Live Firebase project `pharma-da29d` (3 real users, Email/Password provider, admin
 claims granted) + live Supabase project `rsyyqtynvqbaeoslxwwc` (migration applied). Every check below
 was executed against these real services; nothing is inferred from code review alone except where a
@@ -45,6 +46,8 @@ row explicitly says "implemented".
 | 22 | **Full console + apply flow in a real browser** | `npx tsx scripts/check-console-ui.ts` — sign in → publish a job through the UI → public site → `/apply` (no login) → submit a real PDF → console shows it per role and per company → "＋ already applied" blocks a second attempt | ✅ **PASS** — **21/21**, test data cleaned up |
 | 23 | Applications migration applied (table + private bucket) | anon `GET /rest/v1/applications` → `200 []` (was `404`); service-role `GET /storage/v1/bucket/resumes` → `public:false`, `file_size_limit:3145728`, PDF/DOC/DOCX | ✅ **PASS** |
 | 24 | Earlier suites still green after the new feature | `npx tsx scripts/smoke-rls.ts` re-run → 28/28, all 5 tables back to 0 rows | ✅ **PASS** |
+| 25 | **Client-site re-skin to the reference theme** (2026-10-30) | `npx tsx scripts/check-public-theme.ts` — asserts the dark-green top bar, white header, lime Apply CTA, light footer with 4 links, page `<h1>`, no admin chrome and no JS errors on all 8 public routes | ✅ **PASS** — **56/56**; admin console untouched (see check 22 re-run) |
+| 26 | Console + build still green after the re-skin | `npx tsc --noEmit` → 0 errors; `npm run build` → exit 0; `npx tsx scripts/check-console-ui.ts` re-run | ✅ **PASS** — **21/21**, test data cleaned up |
 
 Reproduce locally:
 
@@ -60,6 +63,7 @@ npx tsx scripts/smoke-applications.ts # applications migration must be applied f
 npm run dev                           # then, in another terminal:
 npx tsx scripts/test-login-ui.ts
 npx tsx scripts/check-console-ui.ts   # full console + apply flow in a browser
+npx tsx scripts/check-public-theme.ts # public-route theme assertions (needs npm run dev)
 ```
 
 ### Live admin endpoint suite executed (check 19) — 50/50

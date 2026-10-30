@@ -13,26 +13,39 @@ export default function JobCard({ job }: { job: PublicJob }) {
   const salary = formatSalary(job);
   const published = formatPublishedDate(job);
 
+  const meta = [
+    job.location,
+    employment,
+    locationType,
+    published ? `Published ${published}` : null,
+    salary,
+  ].filter(Boolean) as string[];
+
   return (
     <article className="job-card">
-      {job.isSample && <span className="badge-sample">Illustrative sample vacancy</span>}
-      <h3>
-        <Link to={`/jobs/${job.id}`}>{job.title}</Link>
-      </h3>
-      <div className="job-company">{job.company}</div>
-      <div className="job-meta">
-        {job.location && <span>📍 {job.location}</span>}
-        {published && <span>Published {published}</span>}
+      <div className="job-card-top">
+        <div>
+          <h3>
+            <Link to={`/jobs/${job.id}`}>{job.title}</Link>
+          </h3>
+          <div className="job-company">{job.company}</div>
+        </div>
+        {job.isSample ? (
+          <span className="badge-sample">Illustrative sample vacancy</span>
+        ) : job.category ? (
+          <span className="badge-cat">{job.category}</span>
+        ) : null}
       </div>
-      <div className="job-tags">
-        {employment && <span className="tag">{employment}</span>}
-        {locationType && <span className="tag">{locationType}</span>}
-        {job.category && <span className="tag">{job.category}</span>}
+      <div className="job-card-bottom">
+        <div className="job-meta">
+          {meta.map((item, i) => (
+            <span key={i}>{item}</span>
+          ))}
+        </div>
+        <Link className="view-details" to={`/jobs/${job.id}`}>
+          View Details →
+        </Link>
       </div>
-      {salary && <div className="job-meta">{salary}</div>}
-      <Link className="view-details" to={`/jobs/${job.id}`}>
-        View Details →
-      </Link>
     </article>
   );
 }

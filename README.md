@@ -1,6 +1,6 @@
 # Pharma Careers
 
-Pharma careers website: a **public job board** (light editorial design) plus a **Firebase
+Pharma careers website: a **public job board** (clean light theme) plus a **Firebase
 Authentication–guarded admin console**, with **Supabase** for data.
 
 ## TL;DR
@@ -57,12 +57,16 @@ be prefixed with `VITE_` / `NEXT_PUBLIC_` and must never reach the browser.
 
 ## Public website
 
-- **Theme:** light editorial layout, deep-green branding, lime "Latest Jobs" pill, serif display
-  headings (`src/index.css` holds the design tokens).
+- **Theme:** clean light layout on white / light-gray (`#f8f9fa`) bands, deep-green branding
+  (`#0f5132` / `#0b3d26`), lime accent CTAs (`#bef264`) — dark-green top contact bar, white header
+  with a lime **Apply** button, horizontal full-width job rows with a right-aligned badge and
+  divider, dark-green rounded CTA banner, light footer (`src/index.css` holds the design tokens).
+  The theme matches https://pharma-careers.ai.studio/; `npx tsx scripts/check-public-theme.ts`
+  asserts it on every public route (56/56).
 - **Pages:** Home (hero + keyword/location search, department chips, Latest Job Alerts), All Jobs
   (search + department filters via URL params), Job detail, **Apply** (the application form), About,
-  Contact, Privacy Policy, Disclaimer. Header nav: Home / All Jobs / Apply / About / Contact; footer
-  links to About / Contact / Privacy Policy / Disclaimer.
+  Contact, Privacy Policy, Disclaimer. Header nav: Home / All Jobs / About / Contact plus a lime
+  **Apply** CTA button; footer links to About / Contact / Privacy Policy / Disclaimer.
 - **Job data:** `src/lib/publicJobs.ts` fetches `status='published'` rows through the anon client
   (`src/lib/publicSupabase.ts`). If Supabase is unconfigured or nothing is published, the site falls
   back to built-in sample vacancies — every card and detail page carries an

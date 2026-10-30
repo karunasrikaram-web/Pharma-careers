@@ -65,31 +65,41 @@ export default function AllJobs() {
 
   return (
     <>
-      <section className="page">
-          <div className="container">
-            <span className="pill">All Jobs</span>
-            <h1>{department || "Every open role, in one list"}</h1>
-            <p className="lede">
-              Search live pharmaceutical and biotech vacancies by keyword, location and department.
-            </p>
+      <section className="page-hero">
+        <div className="container">
+          <span className="pill">Directory &amp; Opportunities</span>
+          <h1>{department || "Every open role, in one list"}</h1>
+          <p className="lede">
+            Search live pharmaceutical and biotech vacancies by keyword, location and department.
+          </p>
+        </div>
+      </section>
 
+      <section className="page" style={{ paddingTop: 36 }}>
+          <div className="container">
             <form className="search-card" onSubmit={applySearch} role="search" style={{ margin: "0 0 26px" }}>
-              <input
-                type="search"
-                placeholder="Keyword, e.g. QA Officer"
-                aria-label="Keyword"
-                value={keywordInput}
-                onChange={(e) => setKeywordInput(e.target.value)}
-              />
-              <input
-                type="search"
-                placeholder="Location, e.g. Hyderabad"
-                aria-label="Location"
-                value={locationInput}
-                onChange={(e) => setLocationInput(e.target.value)}
-              />
+              <div className="search-field">
+                <label htmlFor="jobs-keyword">Job title or keyword</label>
+                <input
+                  id="jobs-keyword"
+                  type="search"
+                  placeholder="e.g. QA Officer"
+                  value={keywordInput}
+                  onChange={(e) => setKeywordInput(e.target.value)}
+                />
+              </div>
+              <div className="search-field">
+                <label htmlFor="jobs-location">City or state</label>
+                <input
+                  id="jobs-location"
+                  type="search"
+                  placeholder="e.g. Hyderabad"
+                  value={locationInput}
+                  onChange={(e) => setLocationInput(e.target.value)}
+                />
+              </div>
               <button type="submit" className="btn btn-primary">
-                Search
+                Filter
               </button>
             </form>
 
@@ -119,14 +129,8 @@ export default function AllJobs() {
               </div>
             ) : (
               <>
-                {usingSamples && (
-                  <p className="section-note" style={{ marginTop: 0 }}>
-                    No live vacancies are published yet — below are illustrative sample vacancies to
-                    preview the site.
-                  </p>
-                )}
                 <p className="section-note" style={{ marginTop: 0 }}>
-                  {filtered.length} {filtered.length === 1 ? "vacancy" : "vacancies"}
+                  Showing {filtered.length} {filtered.length === 1 ? "vacancy" : "vacancies"}
                 </p>
                 <div className="jobs-grid">
                   {filtered.map((job) => (
