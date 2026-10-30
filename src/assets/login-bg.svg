@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#04120c"/>
+      <stop offset="0.45" stop-color="#0b3d26"/>
+      <stop offset="1" stop-color="#0f5132"/>
+    </linearGradient>
+    <radialGradient id="gLime" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#bef264" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#bef264" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="gEm" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#34d399" stop-opacity="0.26"/>
+      <stop offset="1" stop-color="#34d399" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vig" cx="0.5" cy="0.45" r="0.8">
+      <stop offset="0.5" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.5"/>
+    </radialGradient>
+    <pattern id="grid" width="64" height="64" patternUnits="userSpaceOnUse">
+      <path d="M64 0H0V64" fill="none" stroke="#ffffff" stroke-opacity="0.05" stroke-width="1"/>
+    </pattern>
+    <g id="mol">
+      <polygon points="36,0 18,31.2 -18,31.2 -36,0 -18,-31.2 18,-31.2" fill="none" stroke="#bef264" stroke-opacity="0.55" stroke-width="2.5"/>
+      <line x1="36" y1="0" x2="72" y2="0" stroke="#bef264" stroke-opacity="0.45" stroke-width="2.5"/>
+      <circle cx="79" cy="0" r="7" fill="#bef264" fill-opacity="0.55"/>
+      <line x1="-18" y1="-31.2" x2="-36" y2="-62" stroke="#bef264" stroke-opacity="0.45" stroke-width="2.5"/>
+      <circle cx="-39" cy="-69" r="7" fill="#bef264" fill-opacity="0.55"/>
+      <line x1="-18" y1="31.2" x2="-36" y2="62" stroke="#bef264" stroke-opacity="0.45" stroke-width="2.5"/>
+      <circle cx="-39" cy="69" r="7" fill="#bef264" fill-opacity="0.55"/>
+    </g>
+    <g id="cap">
+      <rect width="132" height="48" rx="24" fill="#ffffff" fill-opacity="0.08" stroke="#ffffff" stroke-opacity="0.3" stroke-width="1.5"/>
+      <path d="M66 0H108A24 24 0 0 1 108 48H66Z" fill="#bef264" fill-opacity="0.5"/>
+      <line x1="66" y1="1" x2="66" y2="47" stroke="#ffffff" stroke-opacity="0.4" stroke-width="1.5"/>
+    </g>
+  </defs>
+
+  <rect width="1600" height="1000" fill="url(#bg)"/>
+  <rect width="1600" height="1000" fill="url(#grid)"/>
+  <ellipse cx="360" cy="220" rx="620" ry="480" fill="url(#gLime)"/>
+  <ellipse cx="1180" cy="800" rx="640" ry="500" fill="url(#gEm)"/>
+
+  <use href="#mol" transform="translate(280,270) scale(1.7) rotate(-10)" opacity="0.55"/>
+  <use href="#mol" transform="translate(770,170) scale(1.1) rotate(20)" opacity="0.4"/>
+  <use href="#mol" transform="translate(650,640) scale(1.5) rotate(-25)" opacity="0.45"/>
+  <use href="#mol" transform="translate(1230,300) scale(1.25) rotate(15)" opacity="0.32"/>
+  <use href="#mol" transform="translate(1430,770) scale(1.8) rotate(-8)" opacity="0.28"/>
+  <use href="#mol" transform="translate(120,870) scale(1) rotate(30)" opacity="0.35"/>
+
+  <use href="#cap" transform="translate(190,540) rotate(-20)" opacity="0.85"/>
+  <use href="#cap" transform="translate(540,360) rotate(12) scale(1.15)" opacity="0.65"/>
+  <use href="#cap" transform="translate(900,780) rotate(-8)" opacity="0.5"/>
+  <use href="#cap" transform="translate(430,70) rotate(24) scale(0.8)" opacity="0.5"/>
+
+  <circle cx="90" cy="180" r="3.5" fill="#bef264" opacity="0.7"/>
+  <circle cx="520" cy="140" r="3" fill="#ffffff" opacity="0.5"/>
+  <circle cx="860" cy="420" r="3.5" fill="#bef264" opacity="0.6"/>
+  <circle cx="410" cy="700" r="3" fill="#ffffff" opacity="0.45"/>
+  <circle cx="1050" cy="150" r="3" fill="#bef264" opacity="0.55"/>
+  <circle cx="1330" cy="560" r="3.5" fill="#ffffff" opacity="0.4"/>
+  <circle cx="740" cy="900" r="3" fill="#bef264" opacity="0.5"/>
+  <circle cx="150" cy="440" r="3" fill="#ffffff" opacity="0.4"/>
+
+  <rect width="1600" height="1000" fill="url(#vig)"/>
+</svg>
