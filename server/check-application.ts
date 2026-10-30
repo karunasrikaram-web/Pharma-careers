@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getSupabaseAdmin } from "./_lib/db";
-import { consume, getClientIp } from "./_lib/rate-limit";
-import { checkApplicationsSchema } from "./_lib/validate";
+import { getSupabaseAdmin } from "./_lib/db.js";
+import { consume, getClientIp } from "./_lib/rate-limit.js";
+import { checkApplicationsSchema } from "./_lib/validate.js";
 
 /**
  * Public duplicate-check (no auth). The apply form calls this as the candidate

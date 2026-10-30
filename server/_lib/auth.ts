@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { verifyAdminSessionCookie, verifyAdminToken, type AdminAuthResult } from "./firebase";
-import { consume, getClientIp } from "./rate-limit";
+import { verifyAdminSessionCookie, verifyAdminToken, type AdminAuthResult } from "./firebase.js";
+import { consume, getClientIp } from "./rate-limit.js";
 
 export const ADMIN_SESSION_COOKIE = "pharma_admin_session";
 

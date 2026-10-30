@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { randomUUID } from "crypto";
-import { getSupabaseAdmin } from "./_lib/db";
-import { consume, getClientIp } from "./_lib/rate-limit";
-import { createApplicationSchema } from "./_lib/validate";
+import { getSupabaseAdmin } from "./_lib/db.js";
+import { consume, getClientIp } from "./_lib/rate-limit.js";
+import { createApplicationSchema } from "./_lib/validate.js";
 
 /**
  * Public job-application endpoint (no auth). Candidates apply on a job's page

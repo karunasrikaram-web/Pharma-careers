@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { requireAdmin, ADMIN_SESSION_COOKIE } from "../_lib/auth";
+import { requireAdmin, ADMIN_SESSION_COOKIE } from "../_lib/auth.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {

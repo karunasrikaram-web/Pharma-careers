@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { requireAdmin } from "../_lib/auth";
-import { getSupabaseAdmin } from "../_lib/db";
-import { createJobSchema, updateJobSchema } from "../_lib/validate";
+import { requireAdmin } from "../_lib/auth.js";
+import { getSupabaseAdmin } from "../_lib/db.js";
+import { createJobSchema, updateJobSchema } from "../_lib/validate.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const auth = await requireAdmin(req);

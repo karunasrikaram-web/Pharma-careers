@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { requireAdmin } from "../_lib/auth";
-import { getSupabaseAdmin } from "../_lib/db";
-import { updateApplicationSchema } from "../_lib/validate";
+import { requireAdmin } from "../_lib/auth.js";
+import { getSupabaseAdmin } from "../_lib/db.js";
+import { updateApplicationSchema } from "../_lib/validate.js";
 
 /**
  * Admin applications API.

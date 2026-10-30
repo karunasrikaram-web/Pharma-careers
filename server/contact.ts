@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getSupabaseAdmin } from "./_lib/db";
-import { consume, getClientIp } from "./_lib/rate-limit";
-import { contactMessageSchema } from "./_lib/validate";
+import { getSupabaseAdmin } from "./_lib/db.js";
+import { consume, getClientIp } from "./_lib/rate-limit.js";
+import { contactMessageSchema } from "./_lib/validate.js";
 
 /**
  * Public contact form endpoint (no auth). Validates with Zod, rate-limits per
