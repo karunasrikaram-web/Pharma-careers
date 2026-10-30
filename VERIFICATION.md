@@ -48,6 +48,8 @@ row explicitly says "implemented".
 | 24 | Earlier suites still green after the new feature | `npx tsx scripts/smoke-rls.ts` re-run → 28/28, all 5 tables back to 0 rows | ✅ **PASS** |
 | 25 | **Client-site re-skin to the reference theme** (2026-10-30) | `npx tsx scripts/check-public-theme.ts` — asserts the dark-green top bar, white header, lime Apply CTA, light footer with 4 links, page `<h1>`, no admin chrome and no JS errors on all 8 public routes | ✅ **PASS** — **56/56**; admin console untouched (see check 22 re-run) |
 | 26 | Console + build still green after the re-skin | `npx tsc --noEmit` → 0 errors; `npm run build` → exit 0; `npx tsx scripts/check-console-ui.ts` re-run | ✅ **PASS** — **21/21**, test data cleaned up |
+| 27 | **Admin login redesign** (2026-10-30) | `npx tsx scripts/test-login-ui.ts` → **4/4** (new design keeps neutral reset, cooldown, generic error); `npx tsx scripts/check-console-ui.ts` re-run → **21/21** (sign-in via new design); `npx tsx scripts/screenshot-pages.ts` → 8 pages, 0 errors; `npx tsc --noEmit` + `npm run build` → 0 / exit 0; DOM check on new design → image panel (`.adm-visual`) + lime gradient CTA present | ✅ **PASS** |
+| 28 | **Admin password rotation** (2026-10-30) | `npx tsx scripts/set-admin-passwords.ts karuna@1226 hrushi@2026` → both `admin.auth().updateUser` calls OK; new passwords sign in via Identity Toolkit (OK), old passwords rejected (OK); `.env.local` `TEST_ADMIN1_PASSWORD`/`TEST_ADMIN2_PASSWORD` synced; `npx tsx scripts/smoke-admin-live.ts` re-run → **50/50** PASS; `npx tsx scripts/check-console-ui.ts` re-run → **21/21** PASS; rebuilt bundle contains neither new nor old admin passwords (0 matches) | ✅ **PASS** |
 
 Reproduce locally:
 
