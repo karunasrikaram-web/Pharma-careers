@@ -16,10 +16,16 @@ export const createJobSchema = z.object({
   salaryMax: z.number().int().min(0).optional().nullable(),
   currency: z.string().max(10).optional().nullable(),
   status: jobStatus.default("draft"),
+  department: z.string().max(100).optional().nullable(),
+  role: z.string().max(100).optional().nullable(),
+  photoUrl: z.string().max(500).optional().nullable(),
 });
 
 export const updateJobSchema = createJobSchema.partial().extend({
   id: z.string().min(1),
+  department: z.string().max(100).optional().nullable(),
+  role: z.string().max(100).optional().nullable(),
+  photoUrl: z.string().max(500).optional().nullable(),
 });
 
 export const createArticleSchema = z.object({
@@ -82,6 +88,7 @@ export const createApplicationSchema = z.object({
   email: z.string().email().max(200),
   phone: z.string().min(5).max(50),
   location: z.string().min(2).max(300),
+  experience: z.string().min(1).max(2000),
   coverNote: z.string().max(5000).optional().nullable(),
   resume: z.object({
     filename: z.string().min(1).max(255),

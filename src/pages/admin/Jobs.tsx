@@ -17,7 +17,9 @@ interface Job {
   location_type: string;
   employment_type: string;
   level: string | null;
-  category: string | null;
+  department: string | null;
+  role: string | null;
+  photo_url: string | null;
   description: string | null;
   requirements: string | null;
   salary_min: number | null;
@@ -35,7 +37,9 @@ interface JobForm {
   location_type: string;
   employment_type: string;
   level: string;
-  category: string;
+  department: string[]; // free-text chips (multiple allowed)
+  role: string[]; // free-text chips (multiple allowed)
+  photo_url: string;
   description: string;
   requirements: string;
   salary_min: string;
@@ -51,7 +55,9 @@ const EMPTY_FORM: JobForm = {
   location_type: "onsite",
   employment_type: "full_time",
   level: "",
-  category: "",
+  department: [],
+  role: [],
+  photo_url: "",
   description: "",
   requirements: "",
   salary_min: "",
@@ -59,17 +65,6 @@ const EMPTY_FORM: JobForm = {
   currency: "INR",
   status: "draft",
 };
-
-const CATEGORIES = [
-  "Quality Assurance",
-  "Production",
-  "Research & Development",
-  "Regulatory Affairs",
-  "Clinical Research",
-  "Pharmacovigilance",
-  "Sales & Marketing",
-  "Analytical Development",
-];
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
@@ -83,6 +78,69 @@ const inputStyle: React.CSSProperties = {
 };
 
 const labelStyle: React.CSSProperties = { display: "block", fontSize: 13, color: "#9aa7bd", marginBottom: 6 };
+
+/** Chip/button-style multi-tag input: type a free-text value and hit Enter
+ * (or the add affordance) to turn it into a removable chip button. Supports
+ * multiple departments / roles per job. */
+function TagInput({
+  value,
+  onChange,
+  placeholder,
+  labelStyle,
+  inputStyle,
+}: {
+  value: string[];
+  onChange: (v: string[]) => void;
+  placeholder: string;
+  labelStyle: React.CSSProperties;
+  inputStyle: React.CSSProperties;
+}) {
+  const [text, setText] = useState("");
+
+  const add = () => {
+    const t = text.trim();
+    if (!t) return;
+    if (value.some((v) => v.toLowerCase() === t.toLowerCase())) {
+      setText("");
+      return;
+    }
+    onChange([...value, t]);
+    setText("");
+  };
+
+  const remove = (t: string) => {
+    onChange(value.filter((v) => v !== t));
+  };
+
+  return (
+    <div>
+      <label style={labelStyle}>{placeholder}</label>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, background: "#0e1526", border: "1px solid #22304d", borderRadius: 10, padding: "8px 10px" }}>
+        {value.map((t) => (
+          <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#1d4ed8", color: "#fff", borderRadius: 999, padding: "4px 6px 4px 12px", fontSize: 13, fontWeight: 600 }}>
+            {t}
+            <button type="button" onClick={() => remove(t)} aria-label={`Remove ${t}`} style={{ background: "transparent", border: "none", color: "#fff", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0, fontWeight: 700 }}>
+              ×
+            </button>
+          </span>
+        ))}
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              add();
+            }
+          }}
+          onBlur={add}
+          placeholder={value.length ? "" : placeholder}
+          style={{ border: "none", background: "transparent", color: "#e6eaf2", fontSize: 14, flex: 1, minWidth: 140, outline: "none" }}
+        />
+      </div>
+    </div>
+  );
+}
 
 function JobFormPanel({
   initial,
@@ -148,13 +206,31 @@ function JobFormPanel({
           <input style={inputStyle} value={form.level} onChange={set("level")} placeholder="Mid–Senior level" />
         </div>
         <div>
-          <label style={labelStyle}>Department</label>
-          <select style={inputStyle} value={form.category} onChange={set("category")}>
-            <option value="">(none)</option>
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
+          <label style={labelStyle}>Department *</label>
+          <TagInput
+            value={form.department}
+            onChange={(v) => setForm((f) => ({ ...f, department: v }))}
+            placeholder="Add department, press Enter…"
+            labelStyle={labelStyle}
+            inputStyle={inputStyle}
+          />
+        </div>
+        <div>
+          <label style={labelStyle}>Role *</label>
+          <TagInput
+            value={form.role}
+            onChange={(v) => setForm((f) => ({ ...f, role: v }))}
+            placeholder="Add role, press Enter…"
+            labelStyle={labelStyle}
+            inputStyle={inputStyle}
+          />
+        </div>
+        <div>
+          <label style={labelStyle}>Company photo URL</label>
+          <input style={inputStyle} value={form.photo_url} onChange={(e) => setForm((f) => ({ ...f, photo_url: e.target.value }))} placeholder="https://…/company-logo.png" />
+          {form.photo_url ? (
+            <img src={form.photo_url} alt="Company photo preview" style={{ marginTop: 8, maxWidth: 220, borderRadius: 10, border: "1px solid #22304d", display: "block" }} />
+          ) : null}
         </div>
         <div>
           <label style={labelStyle}>Currency</label>
@@ -234,7 +310,9 @@ export default function AdminJobs() {
     locationType: f.location_type,
     employmentType: f.employment_type,
     level: f.level.trim() || null,
-    category: f.category || null,
+    department: f.department.join(", ") || null,
+    role: f.role.join(", ") || null,
+    photoUrl: f.photo_url.trim() || null,
     description: f.description.trim() || null,
     requirements: f.requirements.trim() || null,
     salaryMin: f.salary_min.trim() ? Number(f.salary_min) : null,
@@ -312,7 +390,9 @@ export default function AdminJobs() {
     location_type: j.location_type,
     employment_type: j.employment_type,
     level: j.level ?? "",
-    category: j.category ?? "",
+    department: j.department ? j.department.split(",").map((s) => s.trim()).filter(Boolean) : [],
+    role: j.role ? j.role.split(",").map((s) => s.trim()).filter(Boolean) : [],
+    photo_url: j.photo_url ?? "",
     description: j.description ?? "",
     requirements: j.requirements ?? "",
     salary_min: j.salary_min != null ? String(j.salary_min) : "",
@@ -382,7 +462,7 @@ export default function AdminJobs() {
                     <div style={{ color: "#9aa7bd", fontSize: 14, marginTop: 5 }}>
                       {job.company}
                       {job.location ? ` · ${job.location}` : ""}
-                      {job.category ? ` · ${job.category}` : ""}
+                      {job.department ? ` · ${job.department}` : ""}
                     </div>
                     <div style={{ color: "#5d6b85", fontSize: 12.5, marginTop: 4 }}>
                       Created {formatDate(job.created_at)}

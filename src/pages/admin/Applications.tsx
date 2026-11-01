@@ -18,6 +18,7 @@ interface Application {
   email: string;
   phone: string;
   location: string;
+  experience: string | null;
   cover_note: string | null;
   resume_filename: string | null;
   resume_size: number | null;
@@ -112,6 +113,12 @@ function ApplicationCard({
               <span style={{ color: "#5d6b85" }}>Location · </span>
               {app.location || "—"}
             </div>
+            {app.experience && (
+              <div>
+                <span style={{ color: "#5d6b85" }}>Experience · </span>
+                {app.experience}
+              </div>
+            )}
             <div>
               <span style={{ color: "#5d6b85" }}>Applied · </span>
               {formatDate(app.created_at)}

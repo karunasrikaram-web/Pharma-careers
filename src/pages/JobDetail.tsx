@@ -60,6 +60,12 @@ export default function JobDetail() {
                   {job.location ? ` · ${job.location}` : ""}
                 </p>
 
+                {job.photoUrl && (
+                  <div style={{ marginBottom: 20 }}>
+                    <img src={job.photoUrl} alt={`${job.company} photo`} style={{ maxWidth: 220, borderRadius: 12, border: "1px solid #22304d", display: "block" }} />
+                  </div>
+                )}
+
                 <dl className="detail-list" style={{ marginBottom: 28 }}>
                   {job.employmentType && (
                     <>
@@ -79,10 +85,10 @@ export default function JobDetail() {
                       <dd>{job.level}</dd>
                     </>
                   )}
-                  {job.category && (
+                  {(job.department ?? job.category) && (
                     <>
                       <dt>Department</dt>
-                      <dd>{job.category}</dd>
+                      <dd>{job.department ?? job.category}</dd>
                     </>
                   )}
                   {formatSalary(job) && (

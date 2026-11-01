@@ -9,6 +9,9 @@ export interface PublicJob {
   employmentType: string | null;
   level: string | null;
   category: string | null;
+  department?: string | null;
+  role?: string | null;
+  photoUrl?: string | null;
   description: string | null;
   requirements: string | null;
   salaryMin: number | null;
@@ -52,6 +55,9 @@ interface JobRow {
   employment_type: string | null;
   level: string | null;
   category: string | null;
+  department: string | null;
+  role: string | null;
+  photo_url: string | null;
   description: string | null;
   requirements: string | null;
   salary_min: number | null;
@@ -70,6 +76,9 @@ function mapRow(row: JobRow): PublicJob {
     employmentType: row.employment_type,
     level: row.level,
     category: row.category,
+    department: row.department ?? null,
+    role: row.role ?? null,
+    photoUrl: row.photo_url ?? null,
     description: row.description,
     requirements: row.requirements,
     salaryMin: row.salary_min,

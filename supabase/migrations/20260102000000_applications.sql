@@ -72,3 +72,7 @@ values (
 on conflict (id) do update
   set file_size_limit = excluded.file_size_limit,
       allowed_mime_types = excluded.allowed_mime_types;
+-- departments and roles per job (free text)
+alter table public.jobs add column if not exists department text;
+alter table public.jobs add column if not exists role text;
+alter table public.jobs add column if not exists photo_url text; -- company photo URL for the job/company page

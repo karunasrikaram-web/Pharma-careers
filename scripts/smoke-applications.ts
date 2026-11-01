@@ -160,6 +160,7 @@ async function main() {
     email: "not-an-email",
     phone: "9000000000",
     location: "Pune",
+    experience: "5 years in QA",
     resume: resume(),
   };
   const badEmail = await callHandler("../server/applications", { method: "POST", body: base });
@@ -173,6 +174,7 @@ async function main() {
       email: "t@example.com",
       phone: base.phone,
       location: base.location,
+      experience: base.experience,
       resume: resume(),
     },
   });
@@ -186,6 +188,7 @@ async function main() {
       surname: "T",
       email: "t@example.com",
       phone: base.phone,
+      experience: base.experience,
       resume: resume(),
     },
   });
@@ -252,6 +255,7 @@ async function main() {
         email: `fake.pdf.${Date.now()}@example.com`,
         phone: "9000000002",
         location: "Pune",
+        experience: base.experience,
         resume: {
           filename: "r.pdf",
           contentType: "application/pdf",
@@ -277,6 +281,7 @@ async function main() {
         email: "draft.apply@example.com",
         phone: "9000000001",
         location: "Delhi",
+        experience: base.experience,
         resume: resume(),
       },
     });
@@ -293,6 +298,7 @@ async function main() {
         email: candidateEmail,
         phone: "+91 90000 00000",
         location: "Hyderabad, Telangana",
+        experience: "4 years in pharmaceutical QA and regulatory documentation.",
         coverNote: "I wrote suites like this one and thus deserve extra credit.",
         resume: resume(),
       },
@@ -309,6 +315,7 @@ async function main() {
         email: candidateEmail,
         phone: "+91 90000 00000",
         location: "Hyderabad, Telangana",
+        experience: "4 years in pharmaceutical QA.",
         resume: resume(),
       },
     });
@@ -329,6 +336,7 @@ async function main() {
         email: candidateEmail,
         phone: "+91 90000 00000",
         location: "Hyderabad, Telangana",
+        experience: "4 years in pharmaceutical QA.",
         resume: resume(),
       },
     });
@@ -535,6 +543,7 @@ async function main() {
         email: candidateEmail,
         phone: "+91 90000 00000",
         location: "Hyderabad, Telangana",
+        experience: "4 years in pharmaceutical QA.",
         resume: resume(),
       },
     });

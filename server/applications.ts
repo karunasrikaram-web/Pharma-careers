@@ -71,7 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!parsed.success) {
     return res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
   }
-  const { jobId, name, surname, email, phone, location, coverNote, resume } = parsed.data;
+  const { jobId, name, surname, email, phone, location, experience, coverNote, resume } = parsed.data;
 
   const db = getSupabaseAdmin();
 
@@ -156,6 +156,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     email: normalizedEmail,
     phone: phone.trim(),
     location: location.trim(),
+    experience: experience.trim(),
     cover_note: coverNote ?? null,
     resume_path: objectPath,
     resume_filename: filename,

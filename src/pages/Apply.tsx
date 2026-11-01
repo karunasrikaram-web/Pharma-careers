@@ -45,6 +45,7 @@ export default function Apply() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [location, setLocation] = useState("");
+  const [experience, setExperience] = useState("");
   const [jobId, setJobId] = useState("");
   const [coverNote, setCoverNote] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -171,6 +172,10 @@ export default function Apply() {
       setError("Please enter your location (city or district).");
       return;
     }
+    if (!experience.trim()) {
+      setError("Please tell us about your experience.");
+      return;
+    }
     if (!jobId) {
       setError("Please choose the role you are applying for.");
       return;
@@ -201,6 +206,7 @@ export default function Apply() {
           email: email.trim(),
           phone: phone.trim(),
           location: location.trim(),
+          experience: experience.trim(),
           coverNote: coverNote.trim() || undefined,
           resume: { filename: file.name, contentType: file.type || "application/octet-stream", dataBase64 },
         }),
@@ -332,6 +338,23 @@ export default function Apply() {
                 onChange={(e) => setLocation(e.target.value)}
                 disabled={submitting}
               />
+            </div>
+
+            <div className="field">
+              <label htmlFor="ap-experience">Your experience *</label>
+              <textarea
+                id="ap-experience"
+                name="experience"
+                rows={3}
+                value={experience}
+                onChange={(e) => setExperience(e.target.value)}
+                disabled={submitting}
+                placeholder="e.g. 3 years as a QA Analyst at Sunrise Biotech, worked on GLP documentation and HPLC analysis…"
+              />
+              <p className="hint">
+                Tell us about your years of experience, roles held, and key skills — this helps
+                our team match you to the right role faster.
+              </p>
             </div>
 
             <div className="field">

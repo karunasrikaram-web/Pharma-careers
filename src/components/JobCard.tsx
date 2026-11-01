@@ -32,8 +32,8 @@ export default function JobCard({ job }: { job: PublicJob }) {
         </div>
         {job.isSample ? (
           <span className="badge-sample">Illustrative sample vacancy</span>
-        ) : job.category ? (
-          <span className="badge-cat">{job.category}</span>
+        ) : (job.department ?? job.category) ? (
+          <span className="badge-cat">{(job.department ?? job.category) || ""}</span>
         ) : null}
       </div>
       <div className="job-card-bottom">

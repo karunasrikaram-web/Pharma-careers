@@ -19,6 +19,7 @@ import adminArticles from "../server/admin/articles.js";
 import adminArticleArchive from "../server/admin/articles/archive.js";
 import adminArticlePublish from "../server/admin/articles/publish.js";
 import adminArticleUnpublish from "../server/admin/articles/unpublish.js";
+import adminCompanies from "../server/admin/companies.js";
 import adminContactMessages from "../server/admin/contact-messages.js";
 import adminJobs from "../server/admin/jobs.js";
 import adminJobArchive from "../server/admin/jobs/archive.js";
@@ -42,6 +43,7 @@ const ROUTES: Record<string, Handler> = {
   "admin/jobs/publish": adminJobPublish,
   "admin/jobs/archive": adminJobArchive,
   "admin/jobs/unpublish": adminJobUnpublish,
+  "admin/companies": adminCompanies,
   "admin/applications": adminApplications,
   "admin/contact-messages": adminContactMessages,
   "admin/site-content": adminSiteContent,
