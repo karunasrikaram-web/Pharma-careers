@@ -19,6 +19,7 @@
 alter table public.jobs add column if not exists department text;
 alter table public.jobs add column if not exists role text;
 alter table public.jobs add column if not exists photo_url text; -- company photo URL for the job/company page
+alter table public.jobs add column if not exists interview_documents text; -- documents to carry for interview
 
 -- ---------------------------------------------------------------------------
 -- 2. companies: one row per company with photo / salary visibility /

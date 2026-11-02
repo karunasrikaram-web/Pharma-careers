@@ -1,4 +1,5 @@
 import type { User } from "firebase/auth";
+import { getPublicSupabase } from "./publicSupabase";
 
 /**
  * fetch() wrapper for admin endpoints: attaches the caller's Firebase ID
@@ -14,6 +15,47 @@ export async function adminFetch(user: User, path: string, init?: RequestInit): 
       Authorization: `Bearer ${token}`,
     },
   });
+}
+
+/**
+ * Upload a file to Supabase Storage (job-photos bucket) and return the public URL.
+ * Requires the caller to be an admin (checked on the server via requireAdmin).
+ */
+export async function uploadJobPhoto(user: User, file: File, jobId: string): Promise<string> {
+  const token = await user.getIdToken();
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "png";
+  const fileName = `${jobId}-${Date.now()}.${ext}`;
+
+  // Read file as base64
+  const base64 = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      resolve(result.split(",")[1]); // remove data: prefix
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  const res = await fetch("/api/admin/upload-photo", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      fileName,
+      jobId,
+      dataBase64: base64,
+      contentType: file.type,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Upload failed" }));
+    throw new Error(err.error ?? "Upload failed");
+  }
+  const { publicUrl } = await res.json();
+  return publicUrl;
 }
 
 /** Shared status colours for the dark console. */

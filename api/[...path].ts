@@ -29,6 +29,7 @@ import adminLeads from "../server/admin/leads.js";
 import adminLogout from "../server/admin/logout.js";
 import adminMe from "../server/admin/me.js";
 import adminSiteContent from "../server/admin/site-content.js";
+import adminUploadPhoto from "../server/admin/upload-photo.js";
 
 type Handler = (req: VercelRequest, res: VercelResponse) => unknown | Promise<unknown>;
 
@@ -51,6 +52,7 @@ const ROUTES: Record<string, Handler> = {
   "admin/articles/publish": adminArticlePublish,
   "admin/articles/archive": adminArticleArchive,
   "admin/articles/unpublish": adminArticleUnpublish,
+  "admin/upload-photo": adminUploadPhoto,
 };
 
 /**

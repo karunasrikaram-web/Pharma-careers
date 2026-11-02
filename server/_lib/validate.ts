@@ -19,6 +19,7 @@ export const createJobSchema = z.object({
   department: z.string().max(100).optional().nullable(),
   role: z.string().max(100).optional().nullable(),
   photoUrl: z.string().max(500).optional().nullable(),
+  interviewDocuments: z.string().max(10000).optional().nullable(),
 });
 
 export const updateJobSchema = createJobSchema.partial().extend({
@@ -26,6 +27,7 @@ export const updateJobSchema = createJobSchema.partial().extend({
   department: z.string().max(100).optional().nullable(),
   role: z.string().max(100).optional().nullable(),
   photoUrl: z.string().max(500).optional().nullable(),
+  interviewDocuments: z.string().max(10000).optional().nullable(),
 });
 
 export const createArticleSchema = z.object({

@@ -44,6 +44,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       department: payload.department ?? null,
       role: payload.role ?? null,
       photo_url: payload.photoUrl ?? null,
+      interview_documents: payload.interviewDocuments ?? null,
       status: payload.status,
     };
     // location_type / employment_type are NOT NULL with DB defaults: only send
@@ -90,6 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       department: "department",
       role: "role",
       photoUrl: "photo_url",
+      interviewDocuments: "interview_documents",
     };
     const row: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(rest)) {

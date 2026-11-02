@@ -27,6 +27,7 @@ const ROUTES = [
   "admin/jobs/archive",
   "admin/jobs/unpublish",
   "admin/companies",
+  "admin/upload-photo",
   "admin/applications",
   "admin/contact-messages",
   "admin/site-content",

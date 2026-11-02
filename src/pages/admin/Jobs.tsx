@@ -20,6 +20,7 @@ interface Job {
   department: string | null;
   role: string | null;
   photo_url: string | null;
+  interview_documents: string | null;
   description: string | null;
   requirements: string | null;
   salary_min: number | null;
@@ -40,6 +41,7 @@ interface JobForm {
   department: string[]; // free-text chips (multiple allowed)
   role: string[]; // free-text chips (multiple allowed)
   photo_url: string;
+  interview_documents: string;
   description: string;
   requirements: string;
   salary_min: string;
@@ -58,6 +60,7 @@ const EMPTY_FORM: JobForm = {
   department: [],
   role: [],
   photo_url: "",
+  interview_documents: "",
   description: "",
   requirements: "",
   salary_min: "",
@@ -148,12 +151,14 @@ function JobFormPanel({
   error,
   onSave,
   onCancel,
+  user,
 }: {
   initial: JobForm;
   saving: boolean;
   error: string | null;
   onSave: (form: JobForm) => void;
   onCancel: () => void;
+  user: any;
 }) {
   const [form, setForm] = useState<JobForm>(initial);
   const set = (key: keyof JobForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
@@ -226,8 +231,28 @@ function JobFormPanel({
           />
         </div>
         <div>
-          <label style={labelStyle}>Company photo URL</label>
-          <input style={inputStyle} value={form.photo_url} onChange={(e) => setForm((f) => ({ ...f, photo_url: e.target.value }))} placeholder="https://…/company-logo.png" />
+          <label style={labelStyle}>Company photo (upload directly)</label>
+          <input
+            type="file"
+            accept="image/*"
+            style={{ ...inputStyle, padding: "8px 10px" }}
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const jobId = "new";
+              try {
+                const { uploadJobPhoto } = await import("../../lib/adminApi");
+                const url = await uploadJobPhoto(user, file, jobId);
+                setForm((f) => ({ ...f, photo_url: url }));
+              } catch (err) {
+                console.error("Upload failed:", err);
+                // Fallback: read as data URL preview
+                const reader = new FileReader();
+                reader.onload = () => setForm((f) => ({ ...f, photo_url: reader.result as string }));
+                reader.readAsDataURL(file);
+              }
+            }}
+          />
           {form.photo_url ? (
             <img src={form.photo_url} alt="Company photo preview" style={{ marginTop: 8, maxWidth: 220, borderRadius: 10, border: "1px solid #22304d", display: "block" }} />
           ) : null}
@@ -259,6 +284,10 @@ function JobFormPanel({
       <div style={{ marginTop: 14 }}>
         <label style={labelStyle}>Requirements</label>
         <textarea style={{ ...inputStyle, minHeight: 90, resize: "vertical" }} value={form.requirements} onChange={set("requirements")} placeholder="Qualifications, experience, skills…" />
+      </div>
+      <div style={{ marginTop: 14 }}>
+        <label style={labelStyle}>Documents to carry for interview</label>
+        <textarea style={{ ...inputStyle, minHeight: 90, resize: "vertical" }} value={form.interview_documents} onChange={set("interview_documents")} placeholder="e.g. Original certificates, ID proof, passport-size photos, resume copies…" />
       </div>
       <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
         <button type="submit" disabled={saving} style={{ background: "#3b82f6", color: "#fff", border: "none", borderRadius: 10, padding: "11px 18px", fontWeight: 600, cursor: saving ? "default" : "pointer", opacity: saving ? 0.7 : 1 }}>
@@ -313,6 +342,7 @@ export default function AdminJobs() {
     department: f.department.join(", ") || null,
     role: f.role.join(", ") || null,
     photoUrl: f.photo_url.trim() || null,
+    interviewDocuments: f.interview_documents.trim() || null,
     description: f.description.trim() || null,
     requirements: f.requirements.trim() || null,
     salaryMin: f.salary_min.trim() ? Number(f.salary_min) : null,
@@ -393,6 +423,7 @@ export default function AdminJobs() {
     department: j.department ? j.department.split(",").map((s) => s.trim()).filter(Boolean) : [],
     role: j.role ? j.role.split(",").map((s) => s.trim()).filter(Boolean) : [],
     photo_url: j.photo_url ?? "",
+    interview_documents: j.interview_documents ?? "",
     description: j.description ?? "",
     requirements: j.requirements ?? "",
     salary_min: j.salary_min != null ? String(j.salary_min) : "",
@@ -435,6 +466,7 @@ export default function AdminJobs() {
           error={formError}
           onSave={handleSave}
           onCancel={() => setPanel("closed")}
+          user={user}
         />
       )}
 
