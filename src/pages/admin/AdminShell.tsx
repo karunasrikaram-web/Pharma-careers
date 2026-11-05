@@ -131,7 +131,7 @@ export default function AdminShell() {
       </header>
 
       <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
-        <nav style={{ width: 210, borderRight: "1px solid #22304d", padding: "16px 12px", display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
+        <nav className="admin-shell-nav" style={{ width: 210, borderRight: "1px solid #22304d", padding: "16px 12px", display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
           {NAV.map((item) => (
             <NavLink
               key={item.to}
@@ -160,7 +160,7 @@ export default function AdminShell() {
           </div>
         </nav>
 
-        <main style={{ flex: 1, padding: 24, minWidth: 0, overflowX: "hidden" }}>
+        <main className="admin-shell-main" style={{ flex: 1, padding: 24, minWidth: 0, overflowX: "hidden" }}>
           <Outlet context={{ adminEmail }} />
         </main>
       </div>

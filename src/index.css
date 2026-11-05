@@ -866,3 +866,361 @@ a.section-note:hover {
     display: none;
   }
 }
+
+/* ==========================================================================
+   RESPONSIVE — mobile & tablet (comprehensive)
+   ========================================================================== */
+@media (max-width: 900px) {
+  .container {
+    width: min(1120px, 100% - 32px);
+  }
+
+  .site-header .container {
+    gap: 12px;
+    padding-block: 12px;
+  }
+
+  .nav {
+    gap: 2px;
+    flex-wrap: wrap;
+  }
+
+  .nav a {
+    font-size: 14px;
+    padding: 6px 10px;
+  }
+
+  .nav a.nav-cta {
+    margin-left: 4px;
+    padding: 8px 14px;
+  }
+
+  .hero {
+    padding: 40px 0 36px;
+  }
+
+  .hero .lede {
+    font-size: 16px;
+  }
+
+  .cta-banner {
+    padding: 32px 24px;
+  }
+
+  .cta-banner h2 {
+    font-size: 22px;
+  }
+
+  .footer-links {
+    gap: 14px;
+  }
+
+  .footer-bottom {
+    flex-direction: column;
+    gap: 6px;
+    text-align: center;
+  }
+}
+
+@media (max-width: 640px) {
+  /* container: less horizontal padding on phones */
+  .container {
+    width: min(1120px, 100% - 24px);
+  }
+
+  /* topbar: hide entirely on small screens */
+  .topbar {
+    display: none;
+  }
+
+  /* header: stack brand + nav vertically, wrap nav */
+  .site-header .container {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding-block: 12px;
+  }
+
+  .brand {
+    font-size: 19px;
+  }
+
+  .nav {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 4px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav a {
+    font-size: 13.5px;
+    padding: 6px 10px;
+    white-space: nowrap;
+  }
+
+  .nav a.nav-cta {
+    margin-left: 4px;
+    padding: 7px 14px;
+  }
+
+  /* hero */
+  .hero {
+    padding: 32px 0 28px;
+  }
+
+  .hero h1 {
+    font-size: 28px;
+    margin-bottom: 10px;
+  }
+
+  .hero .lede {
+    font-size: 15.5px;
+    margin-bottom: 22px;
+  }
+
+  .hero-top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  /* search card: full width stacked */
+  .search-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .search-field {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .search-card input {
+    font-size: 14.5px;
+    padding: 11px 12px;
+  }
+
+  .search-card .btn {
+    width: 100%;
+    padding: 12px;
+  }
+
+  /* sections */
+  .section {
+    padding: 32px 0;
+  }
+
+  .section-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .section-head h2 {
+    font-size: 22px;
+  }
+
+  .section-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  /* job cards: reduce padding, stack */
+  .job-card {
+    padding: 16px 18px;
+  }
+
+  .job-card h3 {
+    font-size: 17px;
+  }
+
+  .job-company {
+    font-size: 14px;
+  }
+
+  .job-card-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .view-details {
+    align-self: flex-end;
+  }
+
+  .job-meta {
+    font-size: 13px;
+  }
+
+  .job-meta span + span::before {
+    margin: 0 6px;
+  }
+
+  /* chips wrap nicely */
+  .chips {
+    gap: 8px;
+  }
+
+  .chip {
+    padding: 7px 13px;
+    font-size: 13px;
+  }
+
+  /* content pages */
+  .page {
+    padding: 32px 0 40px;
+  }
+
+  .page-hero {
+    padding: 36px 0 32px;
+  }
+
+  .page h1 {
+    font-size: 26px;
+  }
+
+  .page h2 {
+    font-size: 20px;
+  }
+
+  .page .lede {
+    font-size: 16px;
+    margin-bottom: 24px;
+  }
+
+  .page-narrow {
+    max-width: 100%;
+  }
+
+  /* forms */
+  .form {
+    padding: 20px 16px;
+    max-width: 100%;
+  }
+
+  .form .field-row {
+    grid-template-columns: 1fr;
+  }
+
+  /* detail list: single column */
+  .detail-list {
+    grid-template-columns: 1fr;
+    gap: 4px 0;
+  }
+
+  .detail-list dt {
+    margin-top: 6px;
+  }
+
+  /* cta banner */
+  .cta-banner {
+    padding: 28px 20px;
+    border-radius: 12px;
+  }
+
+  .cta-banner h2 {
+    font-size: 20px;
+  }
+
+  .cta-banner p {
+    font-size: 14.5px;
+  }
+
+  .cta-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .cta-row .btn {
+    width: 100%;
+  }
+
+  /* footer */
+  .site-footer {
+    margin-top: 40px;
+    padding: 32px 0 0;
+  }
+
+  .footer-main {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .footer-blurb {
+    max-width: 100%;
+  }
+
+  .footer-links {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .footer-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+    gap: 4px;
+  }
+
+  /* misc */
+  .badge-sample,
+  .badge-cat {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+
+  .empty-state {
+    padding: 28px 16px;
+  }
+
+  /* reviews cards */
+  .review-card {
+    padding: 14px 16px;
+  }
+
+  /* admin shell: collapse sidebar */
+  .admin-shell-nav {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #22304d;
+  }
+}
+
+/* ==========================================================================
+   ADMIN CONSOLE — responsive (dark UI)
+   ========================================================================== */
+@media (max-width: 768px) {
+  .admin-shell-nav {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #22304d;
+    padding: 12px;
+  }
+
+  .admin-shell-nav nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    width: 100%;
+  }
+
+  .admin-shell-nav nav a {
+    flex: 1 1 auto;
+    min-width: 80px;
+    text-align: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-shell-main {
+    padding: 16px;
+  }
+}
