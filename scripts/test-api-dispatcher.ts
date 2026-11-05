@@ -28,6 +28,8 @@ const ROUTES = [
   "admin/jobs/unpublish",
   "admin/companies",
   "admin/upload-photo",
+  "admin/reviews",
+  "reviews",
   "admin/applications",
   "admin/contact-messages",
   "admin/site-content",

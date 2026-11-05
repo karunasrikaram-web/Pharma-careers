@@ -8,6 +8,8 @@ const NAV = [
   { to: "/admin/dashboard", label: "Dashboard", icon: "▦" },
   { to: "/admin/jobs", label: "Jobs", icon: "☰" },
   { to: "/admin/applications", label: "Applications", icon: "✦" },
+  { to: "/admin/contact-messages", label: "Contact", icon: "✉" },
+  { to: "/admin/reviews", label: "Reviews", icon: "★" },
 ];
 
 /**

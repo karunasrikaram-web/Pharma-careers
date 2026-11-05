@@ -231,6 +231,17 @@ async function main() {
       .catch(() => false);
     record("second application for the same role is blocked", blocked);
 
+    // ── contact messages + reviews admin pages render ────────────────────
+    await page.goto(`${BASE}/admin/contact-messages`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(800);
+    const contactH1 = (await page.locator("h1").first().textContent()) ?? "";
+    record("contact messages page heading", contactH1.includes("Contact messages"), contactH1.trim());
+
+    await page.goto(`${BASE}/admin/reviews`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(800);
+    const reviewsH1 = (await page.locator("h1").first().textContent()) ?? "";
+    record("reviews page heading", reviewsH1.includes("Reviews"), reviewsH1.trim());
+
     record("no JS errors during console tour", jsErrors.length === 0, jsErrors.slice(0, 3).join(" | "));
   } finally {
     // ── cleanup: delete the test application(s) and job via the API ───────

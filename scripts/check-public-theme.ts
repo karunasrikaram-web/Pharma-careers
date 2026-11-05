@@ -16,6 +16,7 @@ const ROUTES: Array<{ path: string; expectH1: string }> = [
   { path: "/apply", expectH1: "Apply for a role" },
   { path: "/about", expectH1: "Pharma careers, curated properly." },
   { path: "/contact", expectH1: "Get in touch" },
+  { path: "/reviews", expectH1: "What people say" },
   { path: "/privacy", expectH1: "Privacy Policy" },
   { path: "/disclaimer", expectH1: "Disclaimer" },
 ];
@@ -77,7 +78,7 @@ async function main() {
       info.hasCta && ["rgb(190, 242, 100)", "rgb(163, 230, 53)"].includes(info.ctaBg ?? ""),
       info.ctaBg ?? "missing"
     );
-    check(`${name} light footer with links`, info.hasFooter && info.footerLinkCount === 4, `${info.footerLinkCount} links`);
+    check(`${name} light footer with links`, info.hasFooter && info.footerLinkCount === 5, `${info.footerLinkCount} links`);
     if (route.expectH1) {
       check(`${name} h1`, info.h1 === route.expectH1, info.h1.slice(0, 60));
     }

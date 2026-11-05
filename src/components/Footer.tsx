@@ -18,6 +18,7 @@ export default function Footer() {
         </div>
         <nav className="footer-links" aria-label="Footer navigation">
           <Link to="/about">About</Link>
+          <Link to="/reviews">Reviews</Link>
           <Link to="/contact">Contact</Link>
           <Link to="/privacy">Privacy Policy</Link>
           <Link to="/disclaimer">Disclaimer</Link>

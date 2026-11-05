@@ -14,6 +14,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import applications from "../server/applications.js";
 import checkApplication from "../server/check-application.js";
 import contact from "../server/contact.js";
+import reviews from "../server/reviews.js";
 import adminApplications from "../server/admin/applications.js";
 import adminArticles from "../server/admin/articles.js";
 import adminArticleArchive from "../server/admin/articles/archive.js";
@@ -28,6 +29,7 @@ import adminJobUnpublish from "../server/admin/jobs/unpublish.js";
 import adminLeads from "../server/admin/leads.js";
 import adminLogout from "../server/admin/logout.js";
 import adminMe from "../server/admin/me.js";
+import adminReviews from "../server/admin/reviews.js";
 import adminSiteContent from "../server/admin/site-content.js";
 import adminUploadPhoto from "../server/admin/upload-photo.js";
 
@@ -35,6 +37,7 @@ type Handler = (req: VercelRequest, res: VercelResponse) => unknown | Promise<un
 
 const ROUTES: Record<string, Handler> = {
   "contact": contact,
+  "reviews": reviews,
   "applications": applications,
   "check-application": checkApplication,
   "admin/me": adminMe,
@@ -53,6 +56,7 @@ const ROUTES: Record<string, Handler> = {
   "admin/articles/archive": adminArticleArchive,
   "admin/articles/unpublish": adminArticleUnpublish,
   "admin/upload-photo": adminUploadPhoto,
+  "admin/reviews": adminReviews,
 };
 
 /**
