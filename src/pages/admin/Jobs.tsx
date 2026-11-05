@@ -152,6 +152,7 @@ function JobFormPanel({
   onSave,
   onCancel,
   user,
+  onError,
 }: {
   initial: JobForm;
   saving: boolean;
@@ -159,10 +160,32 @@ function JobFormPanel({
   onSave: (form: JobForm) => void;
   onCancel: () => void;
   user: any;
+  onError: (msg: string | null) => void;
 }) {
   const [form, setForm] = useState<JobForm>(initial);
   const set = (key: keyof JobForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  const uploadFile = async (file: File) => {
+    if (!user) {
+      onError("You must be signed in to upload.");
+      return;
+    }
+    onError(null);
+    const jobId = "new";
+    try {
+      const { uploadJobPhoto } = await import("../../lib/adminApi");
+      const url = await uploadJobPhoto(user, file, jobId);
+      setForm((f) => ({ ...f, photo_url: url }));
+    } catch (err) {
+      console.error("Upload failed:", err);
+      onError(`Upload failed: ${(err as Error)?.message ?? "unknown error"}`);
+      // Fallback: read as data URL preview (won't persist on save)
+      const reader = new FileReader();
+      reader.onload = () => setForm((f) => ({ ...f, photo_url: reader.result as string }));
+      reader.readAsDataURL(file);
+    }
+  };
 
   return (
     <form
@@ -231,30 +254,83 @@ function JobFormPanel({
           />
         </div>
         <div>
-          <label style={labelStyle}>Company photo (upload directly)</label>
-          <input
-            type="file"
-            accept="image/*"
-            style={{ ...inputStyle, padding: "8px 10px" }}
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              const jobId = "new";
-              try {
-                const { uploadJobPhoto } = await import("../../lib/adminApi");
-                const url = await uploadJobPhoto(user, file, jobId);
-                setForm((f) => ({ ...f, photo_url: url }));
-              } catch (err) {
-                console.error("Upload failed:", err);
-                // Fallback: read as data URL preview
-                const reader = new FileReader();
-                reader.onload = () => setForm((f) => ({ ...f, photo_url: reader.result as string }));
-                reader.readAsDataURL(file);
-              }
+          <label style={labelStyle}>Company photo (upload directly — drag & drop or click)</label>
+          <div
+            style={{
+              ...inputStyle,
+              padding: 16,
+              border: "2px dashed #22304d",
+              borderRadius: 12,
+              textAlign: "center",
+              cursor: "pointer",
+              background: "#0a1220",
+              minHeight: 100,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
             }}
-          />
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              e.currentTarget.style.borderColor = "#3b82f6";
+              e.currentTarget.style.background = "#0e1a33";
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              e.currentTarget.style.borderColor = "#22304d";
+              e.currentTarget.style.background = "#0a1220";
+            }}
+            onDrop={async (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              e.currentTarget.style.borderColor = "#22304d";
+              e.currentTarget.style.background = "#0a1220";
+              const file = e.dataTransfer?.files?.[0];
+              if (!file) return;
+              if (!file.type.startsWith("image/")) {
+                onError("Only image files are accepted.");
+                return;
+              }
+              await uploadFile(file);
+            }}
+            onClick={() => document.getElementById("photo-file-input")?.click()}
+          >
+            <input
+              id="photo-file-input"
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                if (!file.type.startsWith("image/")) {
+                  onError("Only image files are accepted.");
+                  return;
+                }
+                await uploadFile(file);
+              }}
+            />
+            <span style={{ color: "#9aa7bd", fontSize: 14 }}>
+              Drag & drop an image here, or click to browse
+            </span>
+            <span style={{ color: "#5d6b85", fontSize: 12 }}>
+              All image types accepted (JPG, PNG, GIF, WebP, SVG, AVIF, HEIC, etc.) · max 5 MB
+            </span>
+          </div>
           {form.photo_url ? (
-            <img src={form.photo_url} alt="Company photo preview" style={{ marginTop: 8, maxWidth: 220, borderRadius: 10, border: "1px solid #22304d", display: "block" }} />
+            <div style={{ marginTop: 10 }}>
+              <img src={form.photo_url} alt="Company photo preview" style={{ maxWidth: 220, borderRadius: 10, border: "1px solid #22304d", display: "block" }} />
+              <button
+                type="button"
+                onClick={() => setForm((f) => ({ ...f, photo_url: "" }))}
+                style={{ marginTop: 6, background: "transparent", border: "1px solid #5d2626", color: "#ff9b9b", borderRadius: 8, padding: "4px 10px", fontSize: 12, cursor: "pointer" }}
+              >
+                Remove photo
+              </button>
+            </div>
           ) : null}
         </div>
         <div>
@@ -467,6 +543,7 @@ export default function AdminJobs() {
           onSave={handleSave}
           onCancel={() => setPanel("closed")}
           user={user}
+          onError={setFormError}
         />
       )}
 

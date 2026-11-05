@@ -19,8 +19,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: "Missing required fields: fileName, jobId, dataBase64, contentType" });
   }
 
-  if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(contentType)) {
-    return res.status(400).json({ error: "Only image files (jpg, png, webp, gif) are allowed" });
+  if (!contentType || !contentType.startsWith("image/")) {
+    return res.status(400).json({ error: "Only image files are allowed" });
   }
 
   const buffer = Buffer.from(dataBase64, "base64");
