@@ -1,6 +1,6 @@
-# Pharma Careers
+# Pharma Point
 
-Pharma careers website: a **public job board** (clean light theme) plus a **Firebase
+Pharma Point website: a **public job board** (clean light theme) plus a **Firebase
 Authentication–guarded admin console**, with **Supabase** for data.
 
 ## TL;DR

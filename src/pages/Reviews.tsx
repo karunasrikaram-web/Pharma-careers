@@ -95,7 +95,7 @@ export default function Reviews() {
         <span className="pill">Reviews</span>
         <h1>What people say</h1>
         <p className="lede">
-          Experiences from candidates and hiring teams on Pharma Careers. Submit your own below —
+          Experiences from candidates and hiring teams on Pharma Point. Submit your own below —
           reviews are moderated before they appear publicly.
         </p>
 

@@ -4,9 +4,9 @@ export default function About() {
       <section className="page">
           <div className="container page-narrow">
             <span className="pill">About</span>
-            <h1>Pharma careers, curated properly.</h1>
+            <h1>Pharma Point, curated properly.</h1>
             <p className="lede">
-              Pharma Careers is a focused job board for the pharmaceutical and biotechnology
+              Pharma Point is a focused job board for the pharmaceutical and biotechnology
               industry — built for professionals who want signal, not noise.
             </p>
 

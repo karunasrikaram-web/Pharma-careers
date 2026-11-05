@@ -9,7 +9,7 @@ export default function Footer() {
             <span className="brand-mark" aria-hidden="true">
               💊
             </span>
-            Pharma Careers
+            Pharma Point
           </Link>
           <p className="footer-blurb">
             Curated pharmaceutical and biotech careers — quality, production, R&amp;D, regulatory and
@@ -25,7 +25,7 @@ export default function Footer() {
         </nav>
       </div>
       <div className="container footer-bottom">
-        <span>© {new Date().getFullYear()} Pharma Careers. All rights reserved.</span>
+        <span>© {new Date().getFullYear()} Pharma Point. All rights reserved.</span>
         <span>Connecting pharmaceutical talent with leading manufacturers &amp; research organizations.</span>
       </div>
     </footer>

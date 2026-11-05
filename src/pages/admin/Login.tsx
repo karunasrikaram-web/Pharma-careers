@@ -265,7 +265,7 @@ export default function AdminLogin() {
         <div style={styles.visualShade} />
         <div style={styles.brand}>
           <span style={styles.brandMark}>💊</span>
-          <span style={styles.brandName}>Pharma Careers</span>
+          <span style={styles.brandName}>Pharma Point</span>
           <span style={styles.brandTag}>Admin</span>
         </div>
 
@@ -295,7 +295,7 @@ export default function AdminLogin() {
           </ul>
         </div>
 
-        <div style={styles.visualFoot}>© {new Date().getFullYear()} Pharma Careers · Hyderabad, India</div>
+        <div style={styles.visualFoot}>© {new Date().getFullYear()} Pharma Point · Hyderabad, India</div>
       </section>
 
       {/* ── right: sign-in panel ──────────────────────────────────── */}

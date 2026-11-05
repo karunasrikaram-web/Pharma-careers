@@ -121,7 +121,7 @@ export default function AdminShell() {
   return (
     <div style={{ minHeight: "100vh", background: "#0b1020", color: "#e6eaf2", display: "flex", flexDirection: "column" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 24px", borderBottom: "1px solid #22304d" }}>
-        <strong>Pharma Careers · Admin</strong>
+        <strong>Pharma Point · Admin</strong>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <span style={{ color: "#9aa7bd", fontSize: 14 }}>{adminEmail ?? user?.email}</span>
           <button type="button" onClick={handleSignOut} style={{ background: "transparent", border: "1px solid #22304d", color: "#c6d0e0", borderRadius: 10, padding: "8px 12px", cursor: "pointer" }}>

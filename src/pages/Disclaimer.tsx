@@ -10,7 +10,7 @@ export default function Disclaimer() {
             <div className="prose">
               <h2>General information only</h2>
               <p>
-                Pharma Careers is a job and career information website. While we aim to keep
+                Pharma Point is a job and career information website. While we aim to keep
                 listings accurate and current, vacancies can change or be withdrawn without
                 notice, and we do not guarantee that every listing is open at the time you view
                 it.

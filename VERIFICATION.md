@@ -1,4 +1,4 @@
-# Pharma Careers — Auth Override Verification Report
+# Pharma Point — Auth Override Verification Report
 
 **Scope:** Firebase Authentication for admins, Supabase for data.
 **Date:** 2026-10-29 — original report; **2026-10-30** — applications + admin-console addendum (§5),

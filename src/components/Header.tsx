@@ -29,7 +29,7 @@ export default function Header() {
             <span className="brand-mark" aria-hidden="true">
               💊
             </span>
-            Pharma Careers
+            Pharma Point
           </Link>
           <nav className="nav" aria-label="Main navigation">
             {NAV.map((item) => (
